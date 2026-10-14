@@ -175,8 +175,8 @@ results vary by model and run.
   tier 1 can't settle.
 - **A year and a count can look alike.** Anything from 1950 to 2099 could be
   either, so the words around it decide which it reads as ("2000 users" is a
-  count, "in 2000" a year). Only a date cue settles it; every other number in
-  the band is checked as both, and is supported if the evidence states it
+  count, "in 2000" a year) and which rule code a finding gets. Matching tries
+  both readings, so such a number is supported if the evidence states it
   either way.
 - **Claims with a number and a qualitative part** ("118% NRR tells us expansion
   is structural") are settled by their number.

@@ -3,12 +3,13 @@
 ## Unreleased
 
 - A count in the 1950-2099 band is no longer forced to be a year: "2000 users"
-  and "2048-bit keys" are counts, "in 2000" is still a year, and anything no
-  date cue settles is checked as both readings (ONS001/ONS002).
+  and "2048-bit keys" are counts, "in 2000" is still a year, and either way
+  the number is matched as both readings (ONS001/ONS002).
 
 - A range applies the symbol, scale or unit it states once to both of its
   ends: `$2-3M` is $2M and $3M, `18-24 months` two durations, `2-3%` two
-  percentages. `$2-3M` used to read as two dollars, with the 3M dropped.
+  percentages, written with a dash set tight, `to`, or `between ... and`.
+  `$2-3M` used to read as two dollars, with the 3M dropped.
   `US$2-3M` and `$2M-3M` read the same way. A range states a spread, not a
   change, so `$2-3M` in the evidence no longer derives "up 50%".
 

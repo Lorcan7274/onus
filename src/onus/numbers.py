@@ -11,8 +11,8 @@ is a percentage. A value carries the precision it was written with, and a
 claim is matched at its own: "$2.4B" matches $2,412M (it rounds to it), and
 "42%" matches neither 41% nor a source that only said "about 40%".
 
-A number from 1950 to 2099 is a year or a count: "2000 users" is a count, "in
-2000" a year, and anything no date cue settles is checked as either.
+A number from 1950 to 2099 is a year or a count: "2000 users" reads as a
+count and "in 2000" as a year, and either way it is checked as both.
 """
 
 from __future__ import annotations
@@ -82,8 +82,8 @@ class Quantity:
             return False
         if self.kind == "quarter" and self.year is not None and other.year is not None and self.year != other.year:
             return False
-        # A fraction is 66.667 however it is rendered, so it states 66% and 67% alike.
-        slack = max(self.tolerance, other.tolerance) if other.kind == "fraction" else self.tolerance
+        # A fraction is rounded or truncated to write down, so 66% and 67% both state two thirds.
+        slack = self.tolerance * 2 if other.kind == "fraction" else self.tolerance
         return abs(self.value - other.value) <= slack + 1e-9
 
 
@@ -108,12 +108,12 @@ AMOUNT_SCALE = re.compile(AMOUNT_SCALE_WORDS, re.I)
 WORDNUM = "|".join(sorted(WORDS, key=len, reverse=True))
 
 RANGE_TAIL = rf"%|percent|per cent|[x×]|days?|weeks?|months?|quarters?|years?|{SCALE_WORDS}"
-# No part of a range up to its separator may cross a line break: a bullet's dash is not one.
+# A range holds to one line, and its dash is set tight: " - " joins a label to a value.
 H = r"[^\S\n]"
 # Every dash a word processor, LaTeX or a PDF paste leaves behind.
-RANGE_SEP = rf"[-\u2010-\u2015\u2212]|{H}+to{H}+|{H}+and{H}+"
+RANGE_SEP = rf"(?<!\s)[-\u2010-\u2015\u2212](?!\s)|{H}+to{H}+|{H}+and{H}+"
 # "and" joins two numbers in any sentence; only "between" makes them a range.
-BETWEEN = re.compile(r"\bbetween\s+$", re.I)
+BETWEEN = re.compile(r"\bbetween\s+(?:(?:approximately|about|roughly|around|nearly|some|circa)\s+)?$", re.I)
 # What the duration pattern itself refuses: "2-3 years over the plan".
 NOT_A_DURATION = re.compile(r"\s+(?:over|on)\b", re.I)
 
@@ -129,14 +129,14 @@ YEAR_CUE = re.compile(rf"(?:\b(?:{DATE_CUES}|{WEAK_CUES})\b|©){_CUE_END}", re.I
 NOT_COUNTED = ("is", "was", "has", "does", "goes", "shows", "marks", "means", "seems", "looks", "says", "sees",
                "remains", "stays", "gives", "brings", "as", "this", "thus", "plus", "less", "unless", "versus",
                "vs", "across", "towards", "always", "perhaps", "yes")
-PLURAL_NOUN = rf"(?!(?:{'|'.join(NOT_COUNTED)})\b)[a-z]{{3,}}s|people|staff|men|women|children|personnel|crew"
+PLURAL_NOUN = rf"(?!(?:{'|'.join(NOT_COUNTED)})\b)[a-z]{{2,}}s|people|staff|men|women|children|personnel|crew"
 # "-Q1" after a year is the quarter of that year, not a unit it counts.
 COUNTED_NOUN = re.compile(rf"-(?!q[1-4]\b)[a-z]|\s+(?:{PLURAL_NOUN})\b", re.I)
 
 PATTERNS = [
     ("range", re.compile(rf"(?<![\w.,$€£#@/-])(?:(?:us|ca|c|a|nz|hk|s|r)?(?P<symbol>[$€£]))?{H}?"
-                         rf"(?P<low>{NUM}){H}?(?P<low_tail>{RANGE_TAIL})?{H}*(?P<sep>{RANGE_SEP}){H}*"
-                         rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM})\s?(?P<tail>{RANGE_TAIL})?(?![a-z])", re.I)),
+                         rf"(?P<low>{NUM}){H}?(?P<low_tail>{RANGE_TAIL})?(?P<sep>{RANGE_SEP})"
+                         rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM}){H}?(?P<tail>{RANGE_TAIL})?(?![a-z0-9])", re.I)),
     ("currency", re.compile(rf"([$€£])\s?({NUM})\s?({SCALE_WORDS})?(?![a-z])", re.I)),
     ("percent", re.compile(rf"(?<![\w.])({NUM})\s?(%|percent\b|per cent\b)", re.I)),
     ("fraction", re.compile(r"\b(a|one|two|three|four|nine)[\s-]+(half|halves|thirds?|quarters?|fifths?|tenths?)\b"
@@ -226,6 +226,8 @@ def _range(m: re.Match) -> list[Quantity]:
                              _half_unit(number, scale), m.start(), m.end(), unit))
     if ends[-1].kind == "duration" and NOT_A_DURATION.match(m.string[m.end():]):
         return []
+    if ends[0].kind == "duration" and all(1950 <= e.value <= 2099 for e in ends):
+        return []  # "the 2024-2025 year" spans years; it is not 2024 of them
     return ends
 
 
@@ -233,12 +235,9 @@ def _year_or_count(m: re.Match) -> tuple[str, str]:
     """Which kind a bare 1950-2099 number is, and which it might also be."""
     before, after = m.string[:m.start()], m.string[m.end():]
     noun = COUNTED_NOUN.match(after)
-    dated = bool(DATE_CUE.search(before))
     hyphenated = noun is not None and noun.group(0).startswith("-")
-    if noun and (not YEAR_CUE.search(before) or (hyphenated and not dated)):
+    if noun and (not YEAR_CUE.search(before) or (hyphenated and not DATE_CUE.search(before))):
         return "count", "year"
-    if dated and not noun:
-        return "year", ""
     return "year", "count"
 
 
@@ -305,7 +304,7 @@ def derived(quantities: list[Quantity]) -> list[Quantity]:
     out = []
     for i, a in enumerate(quantities):
         for b in quantities[i + 1:]:
-            if not (a.groups & b.groups) - TEMPORAL or a.kind == "fraction" or not a.value or not b.value:
+            if a.group != b.group or a.temporal or a.kind == "fraction" or not a.value or not b.value:
                 continue
             if (a.start, a.end) == (b.start, b.end):
                 continue  # one range, read at both of its ends
