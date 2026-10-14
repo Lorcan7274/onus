@@ -31,6 +31,40 @@ def test_each_kind_parses_and_normalises(text, expected):
     assert kinds(text) == expected
 
 
+@pytest.mark.parametrize("text, expected", [
+    ("$2-3M", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
+    ("a $2\u20133M round", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
+    ("$2-$3M", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
+    ("2-3 million users", [("2 million", "amount", 2e6), ("3 million", "amount", 3e6)]),
+    ("between 2 and 3 million", [("2 million", "amount", 2e6), ("3 million", "amount", 3e6)]),
+    ("margins of 2-3%", [("2%", "percent", 2.0), ("3%", "percent", 3.0)]),
+    ("over 18-24 months", [("18 months", "duration", 18.0), ("24 months", "duration", 24.0)]),
+    ("grew 2-3x", [("2x", "multiple", 2.0), ("3x", "multiple", 3.0)]),
+])
+def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
+    assert kinds(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("2019-2024 was the period", [("2019", "year", 2019.0), ("2024", "year", 2024.0)]),
+    ("an 18-month contract", [("18-month", "duration", 18.0)]),
+    ("we have 2 and 3 million", [("2", "count", 2.0), ("3 million", "amount", 3e6)]),
+    ("$2 to \u20ac3M", [("$2", "currency", 2.0), ("\u20ac3M", "currency", 3e6)]),
+])
+def test_with_nothing_shared_there_is_no_range(text, expected):
+    assert kinds(text) == expected
+
+
+def test_both_ends_of_a_range_are_checked_separately():
+    low, high = find("raised $2-3M")
+    (two,) = find("$2M")
+    (three,) = find("$3M")
+    assert low.matches(two) and high.matches(three)
+    assert not low.matches(three), "the ends are two quantities to check, not a span to fall inside"
+    months = find("over 18-24 months")
+    assert [q.unit for q in months] == ["month", "month"], "the unit is stated once and meant twice"
+
+
 def test_a_quarter_keeps_its_year():
     (q,) = find("Riverside internal data, Q1 2025.")
     assert (q.kind, q.value, q.year) == ("quarter", 1.0, 2025)

@@ -99,7 +99,15 @@ MONTH = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|a
 SCALE_WORDS = r"thousand|million|billion|trillion|bn|mm|mn|tn|[kmbt]"
 WORDNUM = "|".join(sorted(WORDS, key=len, reverse=True))
 
+# What a range may share across both its ends, and how the two are joined.
+RANGE_TAIL = rf"%|percent|per cent|[x×]|days?|weeks?|months?|quarters?|years?|{SCALE_WORDS}"
+RANGE_SEP = r"[-\u2013\u2014]|\s+to\s+|\s+and\s+"
+# "and" joins two numbers in any sentence; only "between" makes them a range.
+BETWEEN = re.compile(r"\bbetween\s+$", re.I)
+
 PATTERNS = [
+    ("range", re.compile(rf"(?<![\w.,$€£#@/-])([$€£])?\s?({NUM})\s*({RANGE_SEP})\s*([$€£])?\s?({NUM})"
+                         rf"\s?({RANGE_TAIL})?(?![a-z])", re.I)),
     ("currency", re.compile(rf"([$€£])\s?({NUM})\s?({SCALE_WORDS})?(?![a-z])", re.I)),
     ("percent", re.compile(rf"(?<![\w.])({NUM})\s?(%|percent\b|per cent\b)", re.I)),
     ("fraction", re.compile(r"\b(a|one|two|three|four|nine)[\s-]+(half|halves|thirds?|quarters?|fifths?|tenths?)\b"
@@ -132,11 +140,50 @@ def find(text: str) -> list[Quantity]:
         for m in pattern.finditer(text):
             if _overlaps(taken, m.start(), m.end()):
                 continue
-            q = _build(kind, m)
-            if q is not None:
+            qs = _range(m) if kind == "range" else [q for q in (_build(kind, m),) if q is not None]
+            if qs:
                 taken.append((m.start(), m.end()))
-                found.append(q)
+                found += qs
     return sorted(found, key=lambda q: q.start)
+
+
+DURATION_UNITS = ("day", "week", "month", "quarter", "year")
+
+
+def _range(m: re.Match) -> list[Quantity]:
+    """Both ends of "$2-3M" -- which is $2M and $3M, not two dollars.
+
+    A range states its symbol, scale or unit once and means it at both ends,
+    so each end is read with that shared tail: `18-24 months` is two
+    durations, `2-3%` two percentages, "between 2 and 3 million" two amounts.
+    With nothing shared there is no range to read -- "2019-2024" is two years,
+    "555-1234" is not a quantity at all -- and the patterns below see the text
+    as they did before.
+    """
+    symbol, low, sep, repeated, high, tail = m.groups()
+    written = tail or ""
+    tail = written.lower()
+    if sep.strip().lower() == "and" and not BETWEEN.search(m.string[:m.start()]):
+        return []
+    if repeated and repeated != symbol:
+        return []  # "$2 to €3M": each end carries its own currency
+    if tail in ("%", "percent", "per cent"):
+        kind, unit = "percent", ""
+    elif tail in ("x", "×"):
+        kind, unit = "multiple", ""
+    elif tail.rstrip("s") in DURATION_UNITS:
+        kind, unit = "duration", tail.rstrip("s")
+    elif symbol:
+        kind, unit = "currency", symbol
+    elif tail in SCALE:
+        kind, unit = "amount", ""
+    else:
+        return []
+    scale = SCALE.get(tail, 1.0)
+    gap = m.string[m.end(5):m.start(6)] if written else ""  # the spacing the writer used
+    return [Quantity(f"{symbol or ''}{number}{gap}{written}", kind, _num(number) * scale,
+                     _half_unit(number, scale), m.start(), m.end(), unit)
+            for number in (low, high)]
 
 
 def _build(kind: str, m: re.Match) -> Quantity | None:

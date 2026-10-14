@@ -49,7 +49,8 @@ the fixture, and the checks are the assertions.
 2. **Extract claims** from two sources, merged:
    - a deterministic **scan** finds every quantity: money (`$2.4B`, `2.4
      billion`, `$2,400M` are all the same value), percentages, "two thirds",
-     multiples, counts, years, quarters (`Q1 2025`), dates, and durations;
+     multiples, counts, years, quarters (`Q1 2025`), dates, durations, and
+     ranges (`$2-3M` is $2M and $3M, each checked on its own);
    - a **pydantic-ai agent** returns typed claims, adding the ones with no
      number in them ("customers are deepening usage because…") and what each
      claim is about. Its spans must appear in the document **verbatim** or

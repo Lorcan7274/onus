@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A range applies the symbol, scale or unit it states once to both of its
+  ends: `$2-3M` is $2M and $3M, `18-24 months` two durations, `2-3%` two
+  percentages. `$2-3M` used to read as two dollars, with the 3M dropped.
+
 - A claim is checked at its own precision, not the looser of the two
   precisions: evidence reading "about 2 billion" no longer supports a claim of
   `$2.4B`, which the source never stated (ONS001).

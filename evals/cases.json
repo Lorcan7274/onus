@@ -40,9 +40,12 @@
       "document": "fixtures/dock_network_memo.md",
       "evidence": ["fixtures/dock_network_facts.md"],
       "expect": [
-        {"code": "ONS001", "number": "$2.4B", "text": "Annual network revenue is $2.4B."}
+        {"code": "ONS001", "number": "$2.4B", "text": "Annual network revenue is $2.4B."},
+        {"code": "ONS001", "number": "$5M", "text": "A follow-on of $5-7M closes next month."},
+        {"code": "ONS001", "number": "$7M", "text": "A follow-on of $5-7M closes next month."}
       ],
-      "clean": ["The new pumping shed cost about $0.4B."]
+      "clean": ["The new pumping shed cost about $0.4B.", "The Series B raised $2-3M.",
+                "The rebuild runs 18-24 months.", "Margins hold at 2-3%."]
     }
   ]
 }
