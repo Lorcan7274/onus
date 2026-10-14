@@ -41,15 +41,16 @@
       "evidence": ["fixtures/dock_network_facts.md"],
       "expect": [
         {"code": "ONS001", "number": "$2.4B", "text": "Annual network revenue is $2.4B."},
-        {"code": "ONS001", "number": "$5M", "text": "A follow-on of $5-7M closes next month."},
-        {"code": "ONS001", "number": "$7M", "text": "A follow-on of $5-7M closes next month."},
+        {"code": "ONS001", "number": "$5M", "text": "A spares order of $5-7M closes next month."},
+        {"code": "ONS001", "number": "$7M", "text": "A spares order of $5-7M closes next month."},
         {"code": "ONS001", "number": "1980", "text": "Each hub holds 1980 bikes."},
-        {"code": "ONS002", "number": "2017", "text": "We opened the second depot in 2017."}
+        {"code": "ONS002", "number": "2017", "text": "We opened the second depot in 2017."},
+        {"code": "ONS001", "number": "50%", "text": "Margins improved 50% last year."}
       ],
-      "clean": ["The new pumping shed cost about $0.4B.", "The Series B raised $2-3M.",
+      "clean": ["The new pumping shed cost about $0.4B.", "The dredging contract runs $2-3M.",
                 "The rebuild runs 18-24 months.", "Margins hold at 2-3%.",
                 "The pilot serves 2000 riders.", "Each controller ships 2048-bit keys.",
-                "We launched in 2019."]
+                "We launched in 2019.", "We employ the 2000 staff.", "66% of docks go east."]
     }
   ]
 }

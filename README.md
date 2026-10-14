@@ -59,9 +59,10 @@ the fixture, and the checks are the assertions.
 3. **Tier 1: deterministic.** Each quantity is matched against every quantity
    in the evidence, at the precision **the claim** was written with (`$2.4B`
    matches `$2,412M`, which rounds to it; `42%` doesn't match `41%`, and a
-   source that only said "about $2 billion" doesn't support `$2.4B`). It also matches the changes and
-   ratios between quantities stated in one evidence sentence, so "1.4x, down
-   from 2.1x" supports "down 33%". **A model can't overrule this tier.**
+   source that only said "about $2 billion" doesn't support `$2.4B`). It also
+   matches the changes and ratios between quantities stated in one evidence
+   sentence, so "1.4x, down from 2.1x" supports "down 33%". **A model can't
+   overrule this tier.**
 4. **Tier 2: judged.** A model sees a claim and the most relevant evidence
    passages, and answers supported, contradicted or unsupported. Its quote must
    appear in the evidence verbatim, or the verdict is discarded. It may judge
@@ -173,9 +174,10 @@ results vary by model and run.
   the wrong subject is tier 2's job, and it currently judges only claims that
   tier 1 can't settle.
 - **A year and a count can look alike.** Anything from 1950 to 2099 could be
-  either, so the words around it decide ("2000 users" is a count, "in 2000" a
-  year), and a number they leave open is checked as both -- supported if the
-  evidence states it either way.
+  either, so the words around it decide which it reads as ("2000 users" is a
+  count, "in 2000" a year). Only a date cue settles it; every other number in
+  the band is checked as both, and is supported if the evidence states it
+  either way.
 - **Claims with a number and a qualitative part** ("118% NRR tells us expansion
   is structural") are settled by their number.
 

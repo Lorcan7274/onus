@@ -40,6 +40,9 @@ def test_each_kind_parses_and_normalises(text, expected):
     ("margins of 2-3%", [("2%", "percent", 2.0), ("3%", "percent", 3.0)]),
     ("over 18-24 months", [("18 months", "duration", 18.0), ("24 months", "duration", 24.0)]),
     ("grew 2-3x", [("2x", "multiple", 2.0), ("3x", "multiple", 3.0)]),
+    ("US$2-3M", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
+    ("$2M-3M", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
+    ("$18-24 months", [("18 months", "duration", 18.0), ("24 months", "duration", 24.0)]),
 ])
 def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
     assert kinds(text) == expected
@@ -53,6 +56,8 @@ def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
     ("the 2023 flood closures", [("2023", "year", 2023.0)]),
     ("2023 saw a dip", [("2023", "year", 2023.0)]),
     ("by 2026", [("2026", "year", 2026.0)]),
+    ("In 2024-Q1 we shipped", [("2024", "year", 2024.0), ("Q1", "quarter", 1.0)]),
+    ("Since 2015-dated filings went missing", [("2015", "year", 2015.0)]),
     ("FY2025 results", [("FY2025", "year", 2025.0)]),
 ])
 def test_the_year_band_is_read_from_the_text_around_it(text, expected):
@@ -61,13 +66,21 @@ def test_the_year_band_is_read_from_the_text_around_it(text, expected):
 
 def test_a_number_the_text_leaves_open_is_checked_as_either():
     (users,) = find("2000 users")
-    (spelled,) = find("2,000 users")   # how the evidence happened to write it
+    (spelled,) = find("2,000 users")
     assert users.matches(spelled), "a count is a count however it is punctuated"
     (launch,) = find("in 2000 we launched")
     assert not launch.matches(spelled), "a cue settles it: a launch year is not a user count"
-    (plans,) = find("Our 2026 plans")  # a noun after it, but it reads as a year too
+    (plans,) = find("Our 2026 plans")
     (expanding,) = find("expanding in 2026")
     assert plans.matches(expanding) and expanding.matches(plans)
+
+
+def test_a_determiner_does_not_settle_a_number_as_a_year():
+    (staff,) = find("We employ the 2000 staff.")
+    (spelled,) = find("We employ 2,000 staff.")
+    assert staff.matches(spelled), "'the' can introduce either reading, so it settles nothing"
+    (launched,) = find("In 2000 we launched.")
+    assert not launched.matches(spelled), "a temporal cue does settle it"
 
 
 @pytest.mark.parametrize("text, expected", [
@@ -78,6 +91,37 @@ def test_a_number_the_text_leaves_open_is_checked_as_either():
 ])
 def test_with_nothing_shared_there_is_no_range(text, expected):
     assert kinds(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("emissions of 3-4 t per unit", [("3", "count", 3.0)]),
+    ("a 2-3 m cable", [("2", "count", 2.0)]),
+    ("18-24 m build", [("18", "count", 18.0)]),
+])
+def test_a_bare_scale_letter_is_not_a_scale_without_a_currency_symbol(text, expected):
+    assert kinds(text) == expected, "the scanner reads a standalone '3 t' as 3, and a range may not differ"
+    assert kinds("a 3 m cable") == [("3", "count", 3.0)]
+
+
+@pytest.mark.parametrize("dash", ["-", "\u2010", "\u2011", "\u2012", "\u2013", "\u2014", "\u2212"])
+def test_any_dash_a_document_can_hold_splits_a_range(dash):
+    # A claim and its evidence must split the same way whatever typed the dash.
+    assert kinds(f"margins of 2{dash}3%") == [("2%", "percent", 2.0), ("3%", "percent", 3.0)]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("2-3 years over the plan", [("2", "count", 2.0)]),
+    ("2-3 months on from launch", [("2", "count", 2.0)]),
+    ("01-02 m of cable", []),
+])
+def test_a_range_keeps_the_guards_the_other_patterns_carry(text, expected):
+    assert kinds(text) == expected
+
+
+def test_a_range_stays_on_its_line_though_its_tail_may_wrap():
+    assert kinds("- 5\n- 10 million") == [("5", "count", 5.0), ("10 million", "amount", 1e7)], \
+        "a bullet's dash is not a range dash"
+    assert kinds("between 18 and 24\nmonths") == [("18 months", "duration", 18.0), ("24 months", "duration", 24.0)]
 
 
 def test_both_ends_of_a_range_are_checked_separately():
@@ -128,6 +172,16 @@ def test_a_claim_is_matched_at_its_own_precision():
     assert whole.matches(decimal) and not decimal.matches(whole), "one-way on purpose: the claim sets the bar"
 
 
+def test_a_fraction_in_the_evidence_keeps_its_rounding_slack():
+    (sixty_six,) = find("66% of docks")
+    (two_thirds,) = find("Two thirds of docks")
+    assert sixty_six.matches(two_thirds), "66% and 67% are both honest renderings of two thirds"
+    assert two_thirds.matches(sixty_six)
+    (fifty_two,) = find("52%")
+    (half,) = find("a half")
+    assert not fifty_two.matches(half), "the slack is the fraction's rounding, not an open door"
+
+
 def test_kinds_match_only_within_their_group():
     (dollars,) = find("$2.4B")
     (words,) = find("2.4 billion")
@@ -158,6 +212,17 @@ def test_derived_values_come_from_pairs_stated_together():
     (forty,) = find("40%")
     assert not any(forty.matches(d) for d in made)
     assert derived(find("in 2023 and 2025")) == [], "years are not arithmetic"
+
+
+def test_the_spread_of_one_range_is_not_a_stated_change():
+    assert derived(find("Revenue is $2-3M this year.")) == [], "a spread is not a rise from one end to the other"
+    assert derived(find("Margins hold at 2-3%.")) == []
+
+
+def test_arithmetic_sees_a_number_the_text_left_open():
+    made = derived(find("users rose from 1500 to 2000 last year"))
+    (third,) = find("users rose 33%")
+    assert any(third.matches(d) for d in made), "2000 counts users here, however else it reads"
 
 
 def test_sentences_split_on_semicolons_too():

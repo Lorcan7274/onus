@@ -11,9 +11,8 @@ is a percentage. A value carries the precision it was written with, and a
 claim is matched at its own: "$2.4B" matches $2,412M (it rounds to it), and
 "42%" matches neither 41% nor a source that only said "about 40%".
 
-Some numbers are two things at once: 1950 to 2099 is both a plausible year
-and a plausible count, so "2000 users" is a count, "in 2000" a year, and one
-the text leaves open is checked as either.
+A number from 1950 to 2099 is a year or a count: "2000 users" is a count, "in
+2000" a year, and anything no date cue settles is checked as either.
 """
 
 from __future__ import annotations
@@ -52,7 +51,7 @@ TEMPORAL = {"year", "quarter", "date", "duration"}
 
 @dataclass(frozen=True)
 class Quantity:
-    raw: str  # as written
+    raw: str  # as written; a range end, with the tail it shares
     kind: str  # currency amount percent fraction multiple count year quarter date duration
     value: float  # normalised; for quarter and date, a sortable encoding (see below)
     tolerance: float  # half a unit of the precision it was written with
@@ -68,8 +67,7 @@ class Quantity:
 
     @property
     def groups(self) -> set[str]:
-        """Every group this number may be matched as: more than one where the
-        text it was written in did not settle what kind it is (see `alt`)."""
+        """Every group this number may be matched as; more than one where `alt` is set."""
         return {GROUP[k] for k in (self.kind, self.alt) if k}
 
     @property
@@ -77,20 +75,16 @@ class Quantity:
         return self.kind in TEMPORAL
 
     def matches(self, other: Quantity) -> bool:
-        """Whether `other`, a quantity in the evidence, states this one.
-
-        The claim's own precision decides, not the looser of the two: "$2.4B"
-        is stated by "$2,412M", which rounds to it, and not by "about $2
-        billion", which never said 2.4. A claim may round a source down to
-        fewer digits; it may not add digits the source does not have.
-        """
+        """Whether `other`, in the evidence, states this one at the claim's own precision."""
         if not self.groups & other.groups:
             return False
         if self.kind == "duration" and self.unit != other.unit:
             return False
         if self.kind == "quarter" and self.year is not None and other.year is not None and self.year != other.year:
             return False
-        return abs(self.value - other.value) <= self.tolerance + 1e-9
+        # A fraction is 66.667 however it is rendered, so it states 66% and 67% alike.
+        slack = max(self.tolerance, other.tolerance) if other.kind == "fraction" else self.tolerance
+        return abs(self.value - other.value) <= slack + 1e-9
 
 
 def _half_unit(number: str, scale: float = 1.0) -> float:
@@ -108,31 +102,41 @@ NUM = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
 MONTH = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?"
          r"|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)")
 SCALE_WORDS = r"thousand|million|billion|trillion|bn|mm|mn|tn|[kmbt]"
+# A scale with no currency symbol before it; a bare letter is not one ("3 t" is tonnes).
+AMOUNT_SCALE_WORDS = r"thousand|million|billion|trillion|bn|mm"
+AMOUNT_SCALE = re.compile(AMOUNT_SCALE_WORDS, re.I)
 WORDNUM = "|".join(sorted(WORDS, key=len, reverse=True))
 
-# What a range may share across both its ends, and how the two are joined.
 RANGE_TAIL = rf"%|percent|per cent|[x×]|days?|weeks?|months?|quarters?|years?|{SCALE_WORDS}"
-RANGE_SEP = r"[-\u2013\u2014]|\s+to\s+|\s+and\s+"
+# No part of a range up to its separator may cross a line break: a bullet's dash is not one.
+H = r"[^\S\n]"
+# Every dash a word processor, LaTeX or a PDF paste leaves behind.
+RANGE_SEP = rf"[-\u2010-\u2015\u2212]|{H}+to{H}+|{H}+and{H}+"
 # "and" joins two numbers in any sentence; only "between" makes them a range.
 BETWEEN = re.compile(r"\bbetween\s+$", re.I)
+# What the duration pattern itself refuses: "2-3 years over the plan".
+NOT_A_DURATION = re.compile(r"\s+(?:over|on)\b", re.I)
 
-# A number from 1950 to 2099 reads as a year or as a count, and the text
-# around it decides: a cue in front ("in 2000", "the 2023 contraction") says
-# year, a noun straight after ("2000 users", "2048-bit keys") says count.
-# Where the two disagree, or neither speaks, the number keeps both readings --
-# so one reading cannot raise a false alarm the other would have cleared.
-YEAR_CUE = re.compile(r"(?:\b(?:in|by|on|for|since|from|until|till|through|during|after|before|between|and|or|"
-                      r"the|this|that|last|next|calendar|fiscal|fy|cy|q[1-4]|circa|early|mid|late)\b|©)"
-                      r"[\s,.'\u2019(\[\u2013-]*$", re.I)
+# A date cue before the number says year, a noun after it says count.
+DATE_CUES = (r"in|by|since|from|until|till|through|during|after|before|between|calendar|fiscal|fy|cy|q[1-4]"
+             r"|circa|early|mid|late")
+# A determiner introduces either reading, so it overrules a noun but settles nothing.
+WEAK_CUES = r"on|for|and|or|the|this|that|last|next"
+_CUE_END = r"[\s,.'\u2019(\[\u2013-]*$"
+DATE_CUE = re.compile(rf"(?:\b(?:{DATE_CUES})\b|©){_CUE_END}", re.I)
+YEAR_CUE = re.compile(rf"(?:\b(?:{DATE_CUES}|{WEAK_CUES})\b|©){_CUE_END}", re.I)
 # Words that follow a number ending in "s" without being a noun it counts.
 NOT_COUNTED = ("is", "was", "has", "does", "goes", "shows", "marks", "means", "seems", "looks", "says", "sees",
                "remains", "stays", "gives", "brings", "as", "this", "thus", "plus", "less", "unless", "versus",
                "vs", "across", "towards", "always", "perhaps", "yes")
-COUNTED_NOUN = re.compile(rf"-[a-z]|\s+(?!(?:{'|'.join(NOT_COUNTED)})\b)[a-z]{{3,}}s\b", re.I)
+PLURAL_NOUN = rf"(?!(?:{'|'.join(NOT_COUNTED)})\b)[a-z]{{3,}}s|people|staff|men|women|children|personnel|crew"
+# "-Q1" after a year is the quarter of that year, not a unit it counts.
+COUNTED_NOUN = re.compile(rf"-(?!q[1-4]\b)[a-z]|\s+(?:{PLURAL_NOUN})\b", re.I)
 
 PATTERNS = [
-    ("range", re.compile(rf"(?<![\w.,$€£#@/-])([$€£])?\s?({NUM})\s*({RANGE_SEP})\s*([$€£])?\s?({NUM})"
-                         rf"\s?({RANGE_TAIL})?(?![a-z])", re.I)),
+    ("range", re.compile(rf"(?<![\w.,$€£#@/-])(?:(?:us|ca|c|a|nz|hk|s|r)?(?P<symbol>[$€£]))?{H}?"
+                         rf"(?P<low>{NUM}){H}?(?P<low_tail>{RANGE_TAIL})?{H}*(?P<sep>{RANGE_SEP}){H}*"
+                         rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM})\s?(?P<tail>{RANGE_TAIL})?(?![a-z])", re.I)),
     ("currency", re.compile(rf"([$€£])\s?({NUM})\s?({SCALE_WORDS})?(?![a-z])", re.I)),
     ("percent", re.compile(rf"(?<![\w.])({NUM})\s?(%|percent\b|per cent\b)", re.I)),
     ("fraction", re.compile(r"\b(a|one|two|three|four|nine)[\s-]+(half|halves|thirds?|quarters?|fifths?|tenths?)\b"
@@ -144,7 +148,7 @@ PATTERNS = [
                         rf"|\b({MONTH})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", re.I)),
     ("duration", re.compile(rf"\b({NUM}|{WORDNUM}|one|an?)[\s-]+(day|week|month|quarter|year)s?\b(?!\s+(?:over|on)\b)",
                             re.I)),
-    ("amount", re.compile(rf"(?<![\w.$€£])({NUM})\s?(thousand|million|billion|trillion|bn|mm)\b", re.I)),
+    ("amount", re.compile(rf"(?<![\w.$€£])({NUM})\s?({AMOUNT_SCALE_WORDS})\b", re.I)),
     ("year", re.compile(r"(?<![\w.,$])(19[5-9]\d|20\d\d)(?![\w%]|\.\d|,\d)")),
     ("count", re.compile(rf"(?<![\w.,$€£#@/-])({NUM})(?![\w%×.]|\.\d|,\d)|\b({WORDNUM})\b", re.I)),
 ]
@@ -175,49 +179,65 @@ def find(text: str) -> list[Quantity]:
 DURATION_UNITS = ("day", "week", "month", "quarter", "year")
 
 
-def _range(m: re.Match) -> list[Quantity]:
-    """Both ends of "$2-3M" -- which is $2M and $3M, not two dollars.
+def _list_marker(number: str) -> bool:
+    """"01", "02": a list or card marker, not a count."""
+    return number.startswith("0") and len(number) > 1 and "." not in number
 
-    A range states its symbol, scale or unit once and means it at both ends,
-    so each end is read with that shared tail: `18-24 months` is two
-    durations, `2-3%` two percentages, "between 2 and 3 million" two amounts.
-    With nothing shared there is no range to read -- "2019-2024" is two years,
-    "555-1234" is not a quantity at all -- and the patterns below see the text
-    as they did before.
+
+def _tail_kind(symbol: str | None, tail: str) -> tuple[str, str, float] | None:
+    """A range end's kind, unit and scale from the tail it shares, or None if that is no quantity."""
+    if tail in ("%", "percent", "per cent"):
+        return "percent", "", 1.0
+    if tail in ("x", "\u00d7"):
+        return "multiple", "", 1.0
+    if tail.rstrip("s") in DURATION_UNITS:
+        return "duration", tail.rstrip("s"), 1.0
+    if symbol:
+        return "currency", symbol, SCALE.get(tail, 1.0)  # next to a symbol a letter is a scale: "$2-3M"
+    if AMOUNT_SCALE.fullmatch(tail):
+        return "amount", "", SCALE[tail]
+    return None
+
+
+def _range(m: re.Match) -> list[Quantity]:
+    """Both ends of "$2-3M", which is $2M and $3M: a tail stated once is meant twice.
+
+    With nothing to share there is no range, and the patterns below read the
+    text as they did before: "2019-2024" is two years, "3-4 t" three tonnes.
     """
-    symbol, low, sep, repeated, high, tail = m.groups()
-    written = tail or ""
-    tail = written.lower()
+    symbol, sep, repeated = m.group("symbol"), m.group("sep"), m.group("repeat")
     if sep.strip().lower() == "and" and not BETWEEN.search(m.string[:m.start()]):
         return []
     if repeated and repeated != symbol:
-        return []  # "$2 to €3M": each end carries its own currency
-    if tail in ("%", "percent", "per cent"):
-        kind, unit = "percent", ""
-    elif tail in ("x", "×"):
-        kind, unit = "multiple", ""
-    elif tail.rstrip("s") in DURATION_UNITS:
-        kind, unit = "duration", tail.rstrip("s")
-    elif symbol:
-        kind, unit = "currency", symbol
-    elif tail in SCALE:
-        kind, unit = "amount", ""
-    else:
+        return []  # "$2 to \u20ac3M": each end carries its own currency
+    low = (m.group("low_tail") or "", " " if m.start("low_tail") > m.end("low") else "")
+    high = (m.group("tail") or "", " " if m.start("tail") > m.end("high") else "")
+    ends = []
+    for number, (written, gap) in ((m.group("low"), low if low[0] else high),
+                                   (m.group("high"), high if high[0] else low)):
+        if _list_marker(number):
+            return []
+        read = _tail_kind(symbol, written.lower())
+        if read is None:
+            return []
+        kind, unit, scale = read
+        prefix = symbol if kind == "currency" else ""  # a symbol belongs to money, not to "$18 months"
+        ends.append(Quantity(f"{prefix}{number}{gap}{written}", kind, _num(number) * scale,
+                             _half_unit(number, scale), m.start(), m.end(), unit))
+    if ends[-1].kind == "duration" and NOT_A_DURATION.match(m.string[m.end():]):
         return []
-    scale = SCALE.get(tail, 1.0)
-    gap = m.string[m.end(5):m.start(6)] if written else ""  # the spacing the writer used
-    return [Quantity(f"{symbol or ''}{number}{gap}{written}", kind, _num(number) * scale,
-                     _half_unit(number, scale), m.start(), m.end(), unit)
-            for number in (low, high)]
+    return ends
 
 
 def _year_or_count(m: re.Match) -> tuple[str, str]:
     """Which kind a bare 1950-2099 number is, and which it might also be."""
-    cue = bool(YEAR_CUE.search(m.string[:m.start()]))
-    noun = COUNTED_NOUN.match(m.string[m.end():])
-    if noun and (not cue or noun.group(0).startswith("-")):
-        return "count", "year"  # "2000 users", and "2048-bit" however it is introduced
-    if cue and not noun:
+    before, after = m.string[:m.start()], m.string[m.end():]
+    noun = COUNTED_NOUN.match(after)
+    dated = bool(DATE_CUE.search(before))
+    hyphenated = noun is not None and noun.group(0).startswith("-")
+    if noun and (not YEAR_CUE.search(before) or (hyphenated and not dated)):
+        return "count", "year"
+    if dated and not noun:
         return "year", ""
     return "year", "count"
 
@@ -260,8 +280,8 @@ def _build(kind: str, m: re.Match) -> Quantity | None:
     if kind == "count":
         if m.group(2):
             return Quantity(raw, "count", float(WORDS[m.group(2).lower()]), 0.0, s, e)
-        if m.group(1).startswith("0") and len(m.group(1)) > 1 and "." not in m.group(1):
-            return None  # "01", "02": list and card markers, not counts
+        if _list_marker(m.group(1)):
+            return None
         return Quantity(raw, "count", _num(m.group(1)), _half_unit(m.group(1)), s, e)
     raise NotImplementedError(kind)
 
@@ -274,17 +294,21 @@ def _year(text: str) -> int:
 def derived(quantities: list[Quantity]) -> list[Quantity]:
     """Values a writer could honestly compute from quantities stated together.
 
-    From each pair of same-kind quantities: the percentage change between
+    From each pair of quantities of one kind: the percentage change between
     them, either way round, and their ratio. "1.4x, down from 2.1x" licenses
     "down 33%"; it does not license 50%. Only pairs from one sentence are
     combined -- across a whole document, some pair would produce almost any
     number by coincidence.
+
+    The two ends of one range are not such a pair: a spread is not a change.
     """
     out = []
     for i, a in enumerate(quantities):
         for b in quantities[i + 1:]:
-            if a.group != b.group or a.temporal or a.kind == "fraction" or not a.value or not b.value:
+            if not (a.groups & b.groups) - TEMPORAL or a.kind == "fraction" or not a.value or not b.value:
                 continue
+            if (a.start, a.end) == (b.start, b.end):
+                continue  # one range, read at both of its ends
             for x, y in ((a, b), (b, a)):
                 change = abs(x.value - y.value) / y.value * 100
                 out.append(Quantity(f"{x.raw} vs {y.raw}", "percent", change, 0.0, -1, -1))
