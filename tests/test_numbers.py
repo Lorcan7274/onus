@@ -43,6 +43,8 @@ def test_each_kind_parses_and_normalises(text, expected):
     ("grew 2-3x", [("2x", "multiple", 2.0), ("3x", "multiple", 3.0)]),
     ("US$2-3M", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
     ("$2M-3M", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
+    ("$2M-3", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
+    ("2% to 3", [("2%", "percent", 2.0), ("3%", "percent", 3.0)]),
     ("$18-24 months", [("18 months", "duration", 18.0), ("24 months", "duration", 24.0)]),
 ])
 def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
@@ -59,6 +61,9 @@ def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
     ("by 2026", [("2026", "year", 2026.0)]),
     ("In 2024-Q1 we shipped", [("2024", "year", 2024.0), ("Q1", "quarter", 1.0)]),
     ("Since 2015-dated filings went missing", [("2015", "year", 2015.0)]),
+    ("2024-Q1 revenue", [("2024", "year", 2024.0), ("Q1", "quarter", 1.0)]),
+    ("We employ 2000 staff.", [("2000", "count", 2000.0)]),
+    ("Our 2026 goals", [("2026", "year", 2026.0)]),
     ("FY2025 results", [("FY2025", "year", 2025.0)]),
 ])
 def test_the_year_band_is_read_from_the_text_around_it(text, expected):
@@ -104,7 +109,7 @@ def test_a_bare_scale_letter_is_not_a_scale_without_a_currency_symbol(text, expe
     assert kinds("a 3 m cable") == [("3", "count", 3.0)]
 
 
-@pytest.mark.parametrize("dash", ["-", "\u2010", "\u2011", "\u2012", "\u2013", "\u2014", "\u2212"])
+@pytest.mark.parametrize("dash", ["-", "\u2010", "\u2011", "\u2012", "\u2013", "\u2014", "\u2015", "\u2212"])
 def test_any_dash_a_document_can_hold_splits_a_range(dash):
     # A claim and its evidence must split the same way whatever typed the dash.
     assert kinds(f"margins of 2{dash}3%") == [("2%", "percent", 2.0), ("3%", "percent", 3.0)]
@@ -113,7 +118,8 @@ def test_any_dash_a_document_can_hold_splits_a_range(dash):
 @pytest.mark.parametrize("text, expected", [
     ("2-3 years over the plan", [("2", "count", 2.0)]),
     ("2-3 months on from launch", [("2", "count", 2.0)]),
-    ("01-02 m of cable", []),
+    ("01-02 million", [("02 million", "amount", 2e6)]),
+    ("01-02%", [("02%", "percent", 2.0)]),
 ])
 def test_a_range_keeps_the_guards_the_other_patterns_carry(text, expected):
     assert kinds(text) == expected
@@ -236,6 +242,12 @@ def test_the_spread_of_one_range_is_not_a_stated_change():
 def test_a_year_is_not_arithmetic_whatever_else_it_could_count():
     assert derived(find("We hold three plans for 2026.")) == []
     assert derived(find("Revenue grew over 2019-2024.")) == []
+
+
+def test_a_range_that_states_a_change_still_licenses_it():
+    (fifty,) = find("ARR grew 50%")
+    assert any(fifty.matches(d) for d in derived(find("ARR went from $2M to $3M"))), "a rise is a stated change"
+    assert derived(find("the rebuild runs 18 to 24 months")) == [], "without 'from' it reads as a spread"
 
 
 def test_sentences_split_on_semicolons_too():

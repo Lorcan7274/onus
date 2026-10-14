@@ -10,8 +10,8 @@
   ends: `$2-3M` is $2M and $3M, `18-24 months` two durations, `2-3%` two
   percentages, written with a dash set tight, `to`, or `between ... and`.
   `$2-3M` used to read as two dollars, with the 3M dropped.
-  `US$2-3M` and `$2M-3M` read the same way. A range states a spread, not a
-  change, so `$2-3M` in the evidence no longer derives "up 50%".
+  `US$2-3M` and `$2M-3M` read the same way. A spread is not a change, so
+  `$2-3M` no longer derives "up 50%", while `from $2M to $3M` still does.
 
 - A claim is checked at its own precision, not the looser of the two
   precisions: evidence reading "about 2 billion" no longer supports a claim of

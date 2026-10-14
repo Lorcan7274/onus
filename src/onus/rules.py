@@ -31,8 +31,9 @@ RULES = {r.code: r for r in [
          "sentence. A model cannot overrule this check."),
     Rule("ONS002", "unsupported-date", "A year, quarter, date or duration the evidence does not contain",
          "Dates are where invented specificity hides: 'in 2023', 'as of Q4 2025', 'over 18 months'. Checked "
-         "exactly; a model cannot overrule it. A number that could be a year or a count ('2000 users', "
-         "'2048-bit keys') is read from the words around it, and checked as both where they leave it open."),
+         "exactly; a model cannot overrule it. A number from 1950 to 2099 could be a year or a count ('in "
+         "2000' against '2000 users'); the words around it decide which rule reports it, and it is matched "
+         "as both readings."),
     Rule("ONS003", "unsupported-small-count", "A small count (12 or under) the evidence does not state",
          "Small counts are often counts of things the evidence lists without numbering ('three theses'), "
          "which no string match can verify, so they are reported apart from ONS001. With the model on, a "

@@ -114,6 +114,9 @@ H = r"[^\S\n]"
 RANGE_SEP = rf"(?<!\s)[-\u2010-\u2015\u2212](?!\s)|{H}+to{H}+|{H}+and{H}+"
 # "and" joins two numbers in any sentence; only "between" makes them a range.
 BETWEEN = re.compile(r"\bbetween\s+(?:(?:approximately|about|roughly|around|nearly|some|circa)\s+)?$", re.I)
+# "from $2M to $3M" states a change between two numbers; any other range states one spread.
+FROM = re.compile(r"\bfrom\s+$", re.I)
+WINDOW = 48  # a cue sits just before its number; this bounds the scan back through a long passage
 # What the duration pattern itself refuses: "2-3 years over the plan".
 NOT_A_DURATION = re.compile(r"\s+(?:over|on)\b", re.I)
 
@@ -121,7 +124,7 @@ NOT_A_DURATION = re.compile(r"\s+(?:over|on)\b", re.I)
 DATE_CUES = (r"in|by|since|from|until|till|through|during|after|before|between|calendar|fiscal|fy|cy|q[1-4]"
              r"|circa|early|mid|late")
 # A determiner introduces either reading, so it overrules a noun but settles nothing.
-WEAK_CUES = r"on|for|and|or|the|this|that|last|next"
+WEAK_CUES = r"on|for|and|or|the|this|that|last|next|our|your|their|its|his|her"
 _CUE_END = r"[\s,.'\u2019(\[\u2013-]*$"
 DATE_CUE = re.compile(rf"(?:\b(?:{DATE_CUES})\b|©){_CUE_END}", re.I)
 YEAR_CUE = re.compile(rf"(?:\b(?:{DATE_CUES}|{WEAK_CUES})\b|©){_CUE_END}", re.I)
@@ -203,18 +206,24 @@ def _range(m: re.Match) -> list[Quantity]:
     """Both ends of "$2-3M", which is $2M and $3M: a tail stated once is meant twice.
 
     With nothing to share there is no range, and the patterns below read the
-    text as they did before: "2019-2024" is two years, "3-4 t" three tonnes.
+    text as they did before: "2019-2024" is two years, "3-4 t" is not money.
     """
     symbol, sep, repeated = m.group("symbol"), m.group("sep"), m.group("repeat")
-    if sep.strip().lower() == "and" and not BETWEEN.search(m.string[:m.start()]):
+    if sep.strip().lower() == "and" and not BETWEEN.search(m.string[max(0, m.start() - WINDOW):m.start()]):
         return []
     if repeated and repeated != symbol:
         return []  # "$2 to \u20ac3M": each end carries its own currency
     low = (m.group("low_tail") or "", " " if m.start("low_tail") > m.end("low") else "")
     high = (m.group("tail") or "", " " if m.start("tail") > m.end("high") else "")
+    whole = (m.start(), m.end())
+    if FROM.search(m.string[max(0, m.start() - WINDOW):m.start()]):
+        low_span = (m.start(), m.end("low_tail") if m.group("low_tail") else m.end("low"))
+        high_span = (m.start("repeat") if m.group("repeat") else m.start("high"), m.end())
+    else:
+        low_span = high_span = whole
     ends = []
-    for number, (written, gap) in ((m.group("low"), low if low[0] else high),
-                                   (m.group("high"), high if high[0] else low)):
+    for number, (written, gap), (start, end) in ((m.group("low"), low if low[0] else high, low_span),
+                                                 (m.group("high"), high if high[0] else low, high_span)):
         if _list_marker(number):
             return []
         read = _tail_kind(symbol, written.lower())
@@ -223,7 +232,7 @@ def _range(m: re.Match) -> list[Quantity]:
         kind, unit, scale = read
         prefix = symbol if kind == "currency" else ""  # a symbol belongs to money, not to "$18 months"
         ends.append(Quantity(f"{prefix}{number}{gap}{written}", kind, _num(number) * scale,
-                             _half_unit(number, scale), m.start(), m.end(), unit))
+                             _half_unit(number, scale), start, end, unit))
     if ends[-1].kind == "duration" and NOT_A_DURATION.match(m.string[m.end():]):
         return []
     if ends[0].kind == "duration" and all(1950 <= e.value <= 2099 for e in ends):
@@ -233,7 +242,7 @@ def _range(m: re.Match) -> list[Quantity]:
 
 def _year_or_count(m: re.Match) -> tuple[str, str]:
     """Which kind a bare 1950-2099 number is, and which it might also be."""
-    before, after = m.string[:m.start()], m.string[m.end():]
+    before, after = m.string[max(0, m.start() - WINDOW):m.start()], m.string[m.end():m.end() + WINDOW]
     noun = COUNTED_NOUN.match(after)
     hyphenated = noun is not None and noun.group(0).startswith("-")
     if noun and (not YEAR_CUE.search(before) or (hyphenated and not DATE_CUE.search(before))):
@@ -299,7 +308,8 @@ def derived(quantities: list[Quantity]) -> list[Quantity]:
     combined -- across a whole document, some pair would produce almost any
     number by coincidence.
 
-    The two ends of one range are not such a pair: a spread is not a change.
+    The two ends of one range are not such a pair, unless the range states a
+    change ("from $2M to $3M") rather than a spread.
     """
     out = []
     for i, a in enumerate(quantities):
