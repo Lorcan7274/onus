@@ -26,8 +26,9 @@ class Rule:
 RULES = {r.code: r for r in [
     Rule("ONS001", "unsupported-number", "A number the evidence does not contain or imply",
          "Money, percentages, multiples and counts are parsed from the text and matched against every quantity "
-         "in the evidence at the precision they were written with, and against changes and ratios between "
-         "quantities stated in one evidence sentence. A model cannot overrule this check."),
+         "in the evidence at the precision the claim was written with -- it may round its source down, not add "
+         "digits the source lacks -- and against changes and ratios between quantities stated in one evidence "
+         "sentence. A model cannot overrule this check."),
     Rule("ONS002", "unsupported-date", "A year, quarter, date or duration the evidence does not contain",
          "Dates are where invented specificity hides: 'in 2023', 'as of Q4 2025', 'over 18 months'. Checked "
          "exactly; a model cannot overrule it."),

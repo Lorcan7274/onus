@@ -34,6 +34,15 @@
                 "Two thirds of new docks go to the east bank.",
                 "Please confirm Q3 maintenance window by 15 March."],
       "clean_with_model": ["We hold three plans for 2026."]
+    },
+    {
+      "name": "memo: dock network rollout",
+      "document": "fixtures/dock_network_memo.md",
+      "evidence": ["fixtures/dock_network_facts.md"],
+      "expect": [
+        {"code": "ONS001", "number": "$2.4B", "text": "Annual network revenue is $2.4B."}
+      ],
+      "clean": ["The new pumping shed cost about $0.4B."]
     }
   ]
 }

@@ -57,6 +57,18 @@ def test_precision_decides_a_match():
     assert not forty_two.matches(forty_one)
 
 
+def test_a_claim_is_matched_at_its_own_precision():
+    (precise,) = find("$2.4B")
+    (vague,) = find("about 2 billion")
+    assert not precise.matches(vague), "the source never said 2.4"
+    (coarse,) = find("$2B")
+    (exact,) = find("$2,412M")
+    assert coarse.matches(exact), "2,412M rounds to the $2B the claim did make"
+    (decimal,) = find("42.3%")
+    (whole,) = find("42%")
+    assert whole.matches(decimal) and not decimal.matches(whole), "one-way on purpose: the claim sets the bar"
+
+
 def test_kinds_match_only_within_their_group():
     (dollars,) = find("$2.4B")
     (words,) = find("2.4 billion")

@@ -56,8 +56,9 @@ the fixture, and the checks are the assertions.
      they're dropped, its numbers are re-parsed from the text rather than
      trusted, and any number it missed becomes a claim of its own.
 3. **Tier 1: deterministic.** Each quantity is matched against every quantity
-   in the evidence, at the precision it was written with (`$2.4B` matches
-   `$2,412M`; `42%` doesn't match `41%`). It also matches the changes and
+   in the evidence, at the precision **the claim** was written with (`$2.4B`
+   matches `$2,412M`, which rounds to it; `42%` doesn't match `41%`, and a
+   source that only said "about $2 billion" doesn't support `$2.4B`). It also matches the changes and
    ratios between quantities stated in one evidence sentence, so "1.4x, down
    from 2.1x" supports "down 33%". **A model can't overrule this tier.**
 4. **Tier 2: judged.** A model sees a claim and the most relevant evidence

@@ -7,8 +7,9 @@ extracts claims and judges what words mean; it does not get to decide that
 "$2.4B" is 2.4 billion.
 
 `$2.4B`, `2.4 billion` and `$2,400M` normalise to the same value. "Two thirds"
-is a percentage. A value carries the precision it was written with, so
-"$2.4B" matches $2,412M (it rounds to it) and "42%" does not match 41%.
+is a percentage. A value carries the precision it was written with, and a
+claim is matched at its own: "$2.4B" matches $2,412M (it rounds to it), and
+"42%" matches neither 41% nor a source that only said "about 40%".
 """
 
 from __future__ import annotations
@@ -65,13 +66,20 @@ class Quantity:
         return self.kind in TEMPORAL
 
     def matches(self, other: Quantity) -> bool:
+        """Whether `other`, a quantity in the evidence, states this one.
+
+        The claim's own precision decides, not the looser of the two: "$2.4B"
+        is stated by "$2,412M", which rounds to it, and not by "about $2
+        billion", which never said 2.4. A claim may round a source down to
+        fewer digits; it may not add digits the source does not have.
+        """
         if self.group != other.group:
             return False
         if self.kind == "duration" and self.unit != other.unit:
             return False
         if self.kind == "quarter" and self.year is not None and other.year is not None and self.year != other.year:
             return False
-        return abs(self.value - other.value) <= max(self.tolerance, other.tolerance) + 1e-9
+        return abs(self.value - other.value) <= self.tolerance + 1e-9
 
 
 def _half_unit(number: str, scale: float = 1.0) -> float:
