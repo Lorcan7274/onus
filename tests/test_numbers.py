@@ -46,6 +46,31 @@ def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
 
 
 @pytest.mark.parametrize("text, expected", [
+    ("We serve 2000 users.", [("2000", "count", 2000.0)]),
+    ("2048-bit keys", [("2048", "count", 2048.0)]),
+    ("the 2048-bit keys", [("2048", "count", 2048.0)]),
+    ("In 2000 we launched.", [("2000", "year", 2000.0)]),
+    ("the 2023 flood closures", [("2023", "year", 2023.0)]),
+    ("2023 saw a dip", [("2023", "year", 2023.0)]),
+    ("by 2026", [("2026", "year", 2026.0)]),
+    ("FY2025 results", [("FY2025", "year", 2025.0)]),
+])
+def test_the_year_band_is_read_from_the_text_around_it(text, expected):
+    assert kinds(text) == expected
+
+
+def test_a_number_the_text_leaves_open_is_checked_as_either():
+    (users,) = find("2000 users")
+    (spelled,) = find("2,000 users")   # how the evidence happened to write it
+    assert users.matches(spelled), "a count is a count however it is punctuated"
+    (launch,) = find("in 2000 we launched")
+    assert not launch.matches(spelled), "a cue settles it: a launch year is not a user count"
+    (plans,) = find("Our 2026 plans")  # a noun after it, but it reads as a year too
+    (expanding,) = find("expanding in 2026")
+    assert plans.matches(expanding) and expanding.matches(plans)
+
+
+@pytest.mark.parametrize("text, expected", [
     ("2019-2024 was the period", [("2019", "year", 2019.0), ("2024", "year", 2024.0)]),
     ("an 18-month contract", [("18-month", "duration", 18.0)]),
     ("we have 2 and 3 million", [("2", "count", 2.0), ("3 million", "amount", 3e6)]),

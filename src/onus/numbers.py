@@ -10,6 +10,10 @@ extracts claims and judges what words mean; it does not get to decide that
 is a percentage. A value carries the precision it was written with, and a
 claim is matched at its own: "$2.4B" matches $2,412M (it rounds to it), and
 "42%" matches neither 41% nor a source that only said "about 40%".
+
+Some numbers are two things at once: 1950 to 2099 is both a plausible year
+and a plausible count, so "2000 users" is a count, "in 2000" a year, and one
+the text leaves open is checked as either.
 """
 
 from __future__ import annotations
@@ -56,10 +60,17 @@ class Quantity:
     end: int
     unit: str = ""  # durations: "month", "year"...; currency: the symbol
     year: int | None = None  # quarters written with a year
+    alt: str = ""  # a second kind this number could be, where the text left it open
 
     @property
     def group(self) -> str:
         return GROUP[self.kind]
+
+    @property
+    def groups(self) -> set[str]:
+        """Every group this number may be matched as: more than one where the
+        text it was written in did not settle what kind it is (see `alt`)."""
+        return {GROUP[k] for k in (self.kind, self.alt) if k}
 
     @property
     def temporal(self) -> bool:
@@ -73,7 +84,7 @@ class Quantity:
         billion", which never said 2.4. A claim may round a source down to
         fewer digits; it may not add digits the source does not have.
         """
-        if self.group != other.group:
+        if not self.groups & other.groups:
             return False
         if self.kind == "duration" and self.unit != other.unit:
             return False
@@ -104,6 +115,20 @@ RANGE_TAIL = rf"%|percent|per cent|[x×]|days?|weeks?|months?|quarters?|years?|{
 RANGE_SEP = r"[-\u2013\u2014]|\s+to\s+|\s+and\s+"
 # "and" joins two numbers in any sentence; only "between" makes them a range.
 BETWEEN = re.compile(r"\bbetween\s+$", re.I)
+
+# A number from 1950 to 2099 reads as a year or as a count, and the text
+# around it decides: a cue in front ("in 2000", "the 2023 contraction") says
+# year, a noun straight after ("2000 users", "2048-bit keys") says count.
+# Where the two disagree, or neither speaks, the number keeps both readings --
+# so one reading cannot raise a false alarm the other would have cleared.
+YEAR_CUE = re.compile(r"(?:\b(?:in|by|on|for|since|from|until|till|through|during|after|before|between|and|or|"
+                      r"the|this|that|last|next|calendar|fiscal|fy|cy|q[1-4]|circa|early|mid|late)\b|©)"
+                      r"[\s,.'\u2019(\[\u2013-]*$", re.I)
+# Words that follow a number ending in "s" without being a noun it counts.
+NOT_COUNTED = ("is", "was", "has", "does", "goes", "shows", "marks", "means", "seems", "looks", "says", "sees",
+               "remains", "stays", "gives", "brings", "as", "this", "thus", "plus", "less", "unless", "versus",
+               "vs", "across", "towards", "always", "perhaps", "yes")
+COUNTED_NOUN = re.compile(rf"-[a-z]|\s+(?!(?:{'|'.join(NOT_COUNTED)})\b)[a-z]{{3,}}s\b", re.I)
 
 PATTERNS = [
     ("range", re.compile(rf"(?<![\w.,$€£#@/-])([$€£])?\s?({NUM})\s*({RANGE_SEP})\s*([$€£])?\s?({NUM})"
@@ -186,6 +211,17 @@ def _range(m: re.Match) -> list[Quantity]:
             for number in (low, high)]
 
 
+def _year_or_count(m: re.Match) -> tuple[str, str]:
+    """Which kind a bare 1950-2099 number is, and which it might also be."""
+    cue = bool(YEAR_CUE.search(m.string[:m.start()]))
+    noun = COUNTED_NOUN.match(m.string[m.end():])
+    if noun and (not cue or noun.group(0).startswith("-")):
+        return "count", "year"  # "2000 users", and "2048-bit" however it is introduced
+    if cue and not noun:
+        return "year", ""
+    return "year", "count"
+
+
 def _build(kind: str, m: re.Match) -> Quantity | None:
     raw, s, e = m.group(0), m.start(), m.end()
     if kind == "currency":
@@ -218,7 +254,9 @@ def _build(kind: str, m: re.Match) -> Quantity | None:
         return Quantity(raw, "duration", float(value), 0.0 if n in DURATION_WORDS else _half_unit(n), s, e,
                         unit=m.group(2).lower())
     if kind == "year":
-        return Quantity(raw, "year", float(m.group(1)), 0.0, s, e)
+        read, alt = _year_or_count(m)
+        tolerance = 0.0 if read == "year" else _half_unit(m.group(1))
+        return Quantity(raw, read, float(m.group(1)), tolerance, s, e, alt=alt)
     if kind == "count":
         if m.group(2):
             return Quantity(raw, "count", float(WORDS[m.group(2).lower()]), 0.0, s, e)

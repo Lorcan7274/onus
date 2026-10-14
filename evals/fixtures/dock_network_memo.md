@@ -11,3 +11,13 @@ The rebuild runs 18-24 months.
 Margins hold at 2-3%.
 
 A follow-on of $5-7M closes next month.
+
+The pilot serves 2000 riders.
+
+Each controller ships 2048-bit keys.
+
+We launched in 2019.
+
+Each hub holds 1980 bikes.
+
+We opened the second depot in 2017.

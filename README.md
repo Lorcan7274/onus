@@ -172,6 +172,10 @@ results vary by model and run.
   the claim). "NRR 42%" passes against "ARR up 42%". Catching a right number on
   the wrong subject is tier 2's job, and it currently judges only claims that
   tier 1 can't settle.
+- **A year and a count can look alike.** Anything from 1950 to 2099 could be
+  either, so the words around it decide ("2000 users" is a count, "in 2000" a
+  year), and a number they leave open is checked as both -- supported if the
+  evidence states it either way.
 - **Claims with a number and a qualitative part** ("118% NRR tells us expansion
   is structural") are settled by their number.
 
