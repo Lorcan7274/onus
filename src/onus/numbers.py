@@ -111,10 +111,10 @@ AMOUNT_SCALE = re.compile(AMOUNT_SCALE_WORDS, re.I)
 WORDNUM = "|".join(sorted(WORDS, key=len, reverse=True))
 
 RANGE_TAIL = rf"%|percent|per cent|[x×]|days?|weeks?|months?|quarters?|years?|{SCALE_WORDS}"
-# A range holds to one line.
+# A range holds to one line, and its dash is set tight: "Headcount 12 - 15%" is a label and a value.
 H = r"[^\S\n]"
 # Every dash a word processor, LaTeX or a PDF paste leaves behind.
-RANGE_SEP = rf"{H}*[-\u2010-\u2015\u2212]{H}*|{H}+to{H}+|{H}+and{H}+"
+RANGE_SEP = rf"(?<!\s)[-\u2010-\u2015\u2212](?!\s)|{H}+to{H}+|{H}+and{H}+"
 # "and" joins two numbers in any sentence; only "between" makes them a range.
 BETWEEN = re.compile(r"\bbetween\s+(?:(?:approximately|about|roughly|around|nearly|some|circa)\s+)?$", re.I)
 # "from $2M to $3M" states a change between two numbers; any other range states one spread.
@@ -127,7 +127,7 @@ DATE_CUES = (r"in|by|since|from|until|till|through|during|after|before|between|c
              r"|circa|early|mid|late")
 # A determiner introduces either reading, so it overrules a noun without being a date cue.
 WEAK_CUES = r"on|for|and|or|the|this|that|last|next|our|your|their|its|his|her|[a-z]+['\u2019]s"
-_CUE_END = r"[\s,.'\u2019(\[\u2013-]*$"
+_CUE_END = r"[\s,'\u2019(\[\u2013-]*$"
 DATE_CUE = re.compile(rf"(?:\b(?:{DATE_CUES})\b|©){_CUE_END}", re.I)
 YEAR_CUE = re.compile(rf"(?:\b(?:{DATE_CUES}|{WEAK_CUES})\b|©){_CUE_END}", re.I)
 # Words that follow a number ending in "s" without being a noun it counts.
@@ -173,13 +173,15 @@ def find(text: str) -> list[Quantity]:
     taken = [(m.start(), m.end()) for m in NOISE.finditer(text)]
     found = []
     for kind, pattern in PATTERNS:
-        for m in pattern.finditer(text):
-            if _overlaps(taken, m.start(), m.end()):
-                continue
-            qs = _range(m) if kind == "range" else [q for q in (_build(kind, m),) if q is not None]
+        pos = 0
+        while (m := pattern.search(text, pos)) is not None:
+            qs: list[Quantity] = []
+            if not _overlaps(taken, m.start(), m.end()):
+                qs = _range(m) if kind == "range" else [q for q in (_build(kind, m),) if q is not None]
             if qs:
                 taken.append((m.start(), m.end()))
                 found += qs
+            pos = m.end() if qs or kind != "range" else m.start() + 1  # "120% and 2-3x": try again inside
     return sorted(found, key=lambda q: q.start)
 
 
@@ -216,8 +218,6 @@ def _range(m: re.Match) -> list[Quantity]:
     joined = sep.strip().lower()
     if joined == "and" and not BETWEEN.search(m.string[:m.start()]):
         return []
-    if sep != sep.strip() and joined not in ("to", "and") and m.group("low_tail"):
-        return []  # "Churn 2.1% - 3 accounts lost": a spaced dash joining a label to a value
     if repeated and repeated != symbol:
         return []  # "$2 to \u20ac3M": each end carries its own currency
     low = (m.group("low_tail") or "", " " if m.start("low_tail") > m.end("low") else "")
@@ -229,8 +229,9 @@ def _range(m: re.Match) -> list[Quantity]:
     else:
         low_span = high_span = whole
     ends = []
+    dashed = joined not in ("to", "and")
     for number, (written, gap), (start, end) in ((m.group("low"), low if low[0] else high, low_span),
-                                                 (m.group("high"), high if high[0] else low, high_span)):
+                                                 (m.group("high"), high if high[0] or not dashed else low, high_span)):
         if _list_marker(number):
             return []
         read = _tail_kind(symbol, written.lower())

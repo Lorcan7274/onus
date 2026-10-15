@@ -44,7 +44,6 @@ def test_each_kind_parses_and_normalises(text, expected):
     ("US$2-3M", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
     ("$2M-3M", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
     ("$2M-3", [("$2M", "currency", 2e6), ("$3M", "currency", 3e6)]),
-    ("2% to 3", [("2%", "percent", 2.0), ("3%", "percent", 3.0)]),
     ("$18-24 months", [("18 months", "duration", 18.0), ("24 months", "duration", 24.0)]),
 ])
 def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
@@ -67,6 +66,7 @@ def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
     ("Riverside's 2019 figures", [("2019", "year", 2019.0)]),
     ("2000 LPs backed us", [("2000", "count", 2000.0)]),
     ("2050 its own thing", [("2050", "year", 2050.0)]),
+    ("The order arrived late. 2000 units shipped.", [("2000", "count", 2000.0)]),
     ("FY2025 results", [("FY2025", "year", 2025.0)]),
 ])
 def test_the_year_band_is_read_from_the_text_around_it(text, expected):
@@ -129,10 +129,9 @@ def test_a_range_keeps_the_guards_the_other_patterns_carry(text, expected):
 
 
 NOTATIONS = {
-    "money": ["$2-3M", "$2 - 3M", "$2\u20133M", "$2M-3M", "US$2-3M", "$2M to $3M", "between $2M and $3M"],
-    "percent": ["2-3%", "2 - 3%", "2\u20133%", "2-3 percent", "2 to 3 percent", "between 2% and 3%",
-                "churn,2-3%,steady"],
-    "duration": ["18-24 months", "18 - 24 months", "18 to 24 months", "between 18 and 24 months"],
+    "money": ["$2-3M", "$2\u20133M", "$2M-3M", "US$2-3M", "$2M to $3M", "between $2M and $3M"],
+    "percent": ["2-3%", "2\u20133%", "2-3 percent", "2 to 3 percent", "between 2% and 3%", "churn,2-3%,steady"],
+    "duration": ["18-24 months", "18 to 24 months", "between 18 and 24 months"],
     "count": ["2000 users", "2,000 users", "2000 staff", "the 2000 staff"],
 }
 
@@ -150,9 +149,18 @@ def test_every_notation_of_one_fact_states_what_the_others_do(family):
 @pytest.mark.parametrize("text, expected", [
     ("the 2024-2025 year", [("2024", "year", 2024.0), ("2025 year", "duration", 2025.0)]),
     ("the 2024-25 year", [("2024", "year", 2024.0), ("25 year", "duration", 25.0)]),
-    ("Exhibit 7 - 3 appendices", [("7", "count", 7.0), ("3", "count", 3.0)]),
+    ("Exhibit 7-3 appendices", [("7", "count", 7.0)]),
 ])
 def test_a_range_runs_upward_and_a_span_of_years_is_not_a_duration(text, expected):
+    assert kinds(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Customers grew 20% to 1,200 last quarter.", [("20%", "percent", 20.0), ("1,200", "count", 1200.0)]),
+    ("The team grew 3x to 45 people this year.", [("3x", "multiple", 3.0), ("45", "count", 45.0)]),
+    ("NRR 120% and 2-3x expansion", [("120%", "percent", 120.0), ("2x", "multiple", 2.0), ("3x", "multiple", 3.0)]),
+])
+def test_a_change_to_a_bare_number_is_not_a_range_and_does_not_hide_one(text, expected):
     assert kinds(text) == expected
 
 
@@ -171,6 +179,9 @@ def test_a_range_stays_on_one_line_though_its_tail_may_wrap():
     ("Churn 2.1% - 3 accounts lost", [("2.1%", "percent", 2.1), ("3", "count", 3.0)]),
     ("Revenue 2019 - 24% CAGR", [("2019", "year", 2019.0), ("24%", "percent", 24.0)]),
     ("$4.2M - 3 deals closed", [("$4.2M", "currency", 4.2e6), ("3", "count", 3.0)]),
+    ("Headcount 12 - 15% attrition", [("12", "count", 12.0), ("15%", "percent", 15.0)]),
+    ("Team 8 \u2013 10% growth", [("8", "count", 8.0), ("10%", "percent", 10.0)]),
+    ("Exhibit 4 - 12 months of data", [("4", "count", 4.0), ("12 months", "duration", 12.0)]),
 ])
 def test_a_spaced_dash_joins_a_label_to_a_value_not_a_range(text, expected):
     assert kinds(text) == expected
