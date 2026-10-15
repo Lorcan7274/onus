@@ -178,6 +178,10 @@ results vary by model and run.
   count, "in 2000" a year) and which rule code a finding gets. Matching tries
   both readings, so such a number is supported if the evidence states it
   either way.
+- **A range is read from one line.** A tail that wraps to the next line is
+  still read (`between 18 and 24` / `months`), but a dash that crosses a line
+  break is not a separator, and a unit the scanner doesn't know (`12-15 bikes`,
+  `2-3 kW`) leaves the high end unchecked.
 - **Claims with a number and a qualitative part** ("118% NRR tells us expansion
   is structural") are settled by their number.
 

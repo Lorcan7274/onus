@@ -59,7 +59,7 @@ class Quantity:
     end: int
     unit: str = ""  # durations: "month", "year"...; currency: the symbol
     year: int | None = None  # quarters written with a year
-    alt: str = ""  # a second kind this number could be, where the text left it open
+    alt: str = ""  # the other kind this number could be; every 1950-2099 number carries one
 
     @property
     def group(self) -> str:
@@ -82,8 +82,11 @@ class Quantity:
             return False
         if self.kind == "quarter" and self.year is not None and other.year is not None and self.year != other.year:
             return False
-        # A fraction is rounded or truncated to write down, so 66% and 67% both state two thirds.
-        slack = self.tolerance * 2 if other.kind == "fraction" else self.tolerance
+        slack = self.tolerance
+        if other.kind == "fraction" and slack:
+            unit = slack * 2
+            if abs(other.value / unit - round(other.value / unit)) > 1e-9:
+                slack = unit  # two thirds lands between 66% and 67%, so both state it; three quarters is just 75%
         return abs(self.value - other.value) <= slack + 1e-9
 
 
@@ -122,7 +125,7 @@ NOT_A_DURATION = re.compile(r"\s+(?:over|on)\b", re.I)
 # A date cue before the number says year, a noun after it says count.
 DATE_CUES = (r"in|by|since|from|until|till|through|during|after|before|between|calendar|fiscal|fy|cy|q[1-4]"
              r"|circa|early|mid|late")
-# A determiner introduces either reading, so it overrules a noun but settles nothing.
+# A determiner introduces either reading, so it overrules a noun without being a date cue.
 WEAK_CUES = r"on|for|and|or|the|this|that|last|next|our|your|their|its|his|her|[a-z]+['\u2019]s"
 _CUE_END = r"[\s,.'\u2019(\[\u2013-]*$"
 DATE_CUE = re.compile(rf"(?:\b(?:{DATE_CUES})\b|©){_CUE_END}", re.I)
@@ -130,7 +133,8 @@ YEAR_CUE = re.compile(rf"(?:\b(?:{DATE_CUES}|{WEAK_CUES})\b|©){_CUE_END}", re.I
 # Words that follow a number ending in "s" without being a noun it counts.
 NOT_COUNTED = ("is", "was", "has", "does", "goes", "shows", "marks", "means", "seems", "looks", "says", "sees",
                "remains", "stays", "gives", "brings", "as", "this", "thus", "plus", "less", "unless", "versus",
-               "vs", "across", "towards", "always", "perhaps", "yes")
+               "vs", "across", "towards", "always", "perhaps", "yes", "its", "his", "hers", "ours", "yours",
+               "theirs", "minus")
 PLURAL_NOUN = rf"(?!(?:{'|'.join(NOT_COUNTED)})\b)[a-z]{{2,}}s|people|staff|men|women|children|personnel|crew"
 # "-Q1" after a year is the quarter of that year, not a unit it counts.
 COUNTED_NOUN = re.compile(rf"-(?!q[1-4]\b)[a-z]|\s+(?:{PLURAL_NOUN})\b", re.I)
@@ -138,7 +142,8 @@ COUNTED_NOUN = re.compile(rf"-(?!q[1-4]\b)[a-z]|\s+(?:{PLURAL_NOUN})\b", re.I)
 PATTERNS = [
     ("range", re.compile(rf"(?<![\w.$€£#@/-])(?:(?:us|ca|c|a|nz|hk|s|r)?(?P<symbol>[$€£]))?{H}?"
                          rf"(?P<low>{NUM}){H}?(?P<low_tail>{RANGE_TAIL})?(?P<sep>{RANGE_SEP})"
-                         rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM}){H}?(?P<tail>{RANGE_TAIL})?(?![a-z0-9])", re.I)),
+                         rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM})\s?(?P<tail>{RANGE_TAIL})?(?![a-z0-9]|-[a-z])",
+                         re.I)),
     ("currency", re.compile(rf"([$€£])\s?({NUM})\s?({SCALE_WORDS})?(?![a-z])", re.I)),
     ("percent", re.compile(rf"(?<![\w.])({NUM})\s?(%|percent\b|per cent\b)", re.I)),
     ("fraction", re.compile(r"\b(a|one|two|three|four|nine)[\s-]+(half|halves|thirds?|quarters?|fifths?|tenths?)\b"

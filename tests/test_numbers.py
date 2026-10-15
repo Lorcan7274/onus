@@ -65,6 +65,8 @@ def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
     ("We employ 2000 staff.", [("2000", "count", 2000.0)]),
     ("Our 2026 goals", [("2026", "year", 2026.0)]),
     ("Riverside's 2019 figures", [("2019", "year", 2019.0)]),
+    ("2000 LPs backed us", [("2000", "count", 2000.0)]),
+    ("2050 its own thing", [("2050", "year", 2050.0)]),
     ("FY2025 results", [("FY2025", "year", 2025.0)]),
 ])
 def test_the_year_band_is_read_from_the_text_around_it(text, expected):
@@ -154,11 +156,14 @@ def test_a_range_runs_upward_and_a_span_of_years_is_not_a_duration(text, expecte
     assert kinds(text) == expected
 
 
-def test_a_range_stays_on_one_line():
+def test_a_range_stays_on_one_line_though_its_tail_may_wrap():
     assert kinds("- 5\n- 10 million") == [("5", "count", 5.0), ("10 million", "amount", 1e7)], \
         "a bullet's dash is not a range dash"
-    assert kinds("runs 18-24\nmonths") == [("18", "count", 18.0), ("24\nmonths", "duration", 24.0)], \
-        "a tail on the next line belongs to the next line"
+    assert kinds("between 18 and 24\nmonths") == [("18 months", "duration", 18.0), ("24 months", "duration", 24.0)], \
+        "hard-wrapped evidence states the same range as a single line does"
+    assert kinds("Deals closed: 2-3\nmillion-dollar accounts") == [("2", "count", 2.0),
+                                                                   ("3\nmillion", "amount", 3e6)], \
+        "'million-dollar' is a compound, not a scale the range shares"
 
 
 @pytest.mark.parametrize("text, expected", [
@@ -229,6 +234,10 @@ def test_a_fraction_in_the_evidence_keeps_its_rounding_slack():
     assert not fifty_two.matches(half), "the slack is the fraction's rounding, not an open door"
     (precise,) = find("50.9%")
     assert not precise.matches(half), "a claim keeps its own precision: the source never said .9"
+    (seventy_six,) = find("76%")
+    (quarters,) = find("three quarters")
+    assert find("75%")[0].matches(quarters)
+    assert not seventy_six.matches(quarters), "three quarters is exactly 75%, so it needs no slack at all"
 
 
 def test_kinds_match_only_within_their_group():
