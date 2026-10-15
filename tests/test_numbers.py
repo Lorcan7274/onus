@@ -64,6 +64,7 @@ def test_a_range_reads_its_shared_tail_at_both_ends(text, expected):
     ("2024-Q1 revenue", [("2024", "year", 2024.0), ("Q1", "quarter", 1.0)]),
     ("We employ 2000 staff.", [("2000", "count", 2000.0)]),
     ("Our 2026 goals", [("2026", "year", 2026.0)]),
+    ("Riverside's 2019 figures", [("2019", "year", 2019.0)]),
     ("FY2025 results", [("FY2025", "year", 2025.0)]),
 ])
 def test_the_year_band_is_read_from_the_text_around_it(text, expected):
@@ -122,6 +123,34 @@ def test_any_dash_a_document_can_hold_splits_a_range(dash):
     ("01-02%", [("02%", "percent", 2.0)]),
 ])
 def test_a_range_keeps_the_guards_the_other_patterns_carry(text, expected):
+    assert kinds(text) == expected
+
+
+NOTATIONS = {
+    "money": ["$2-3M", "$2 - 3M", "$2\u20133M", "$2M-3M", "US$2-3M", "$2M to $3M", "between $2M and $3M"],
+    "percent": ["2-3%", "2 - 3%", "2\u20133%", "2-3 percent", "2 to 3 percent", "between 2% and 3%",
+                "churn,2-3%,steady"],
+    "duration": ["18-24 months", "18 - 24 months", "18 to 24 months", "between 18 and 24 months"],
+    "count": ["2000 users", "2,000 users", "2000 staff", "the 2000 staff"],
+}
+
+
+@pytest.mark.parametrize("family", sorted(NOTATIONS))
+def test_every_notation_of_one_fact_states_what_the_others_do(family):
+    parsed = {text: find(text) for text in NOTATIONS[family]}
+    for text, claim in parsed.items():
+        assert claim, f"{text!r} parsed to nothing"
+        for other, evidence in parsed.items():
+            unmatched = [q.raw for q in claim if not any(q.matches(e) for e in evidence)]
+            assert not unmatched, f"{text!r} claims {unmatched}, which {other!r} does not state"
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("the 2024-2025 year", [("2024", "year", 2024.0), ("2025 year", "duration", 2025.0)]),
+    ("the 2024-25 year", [("2024", "year", 2024.0), ("25 year", "duration", 25.0)]),
+    ("Exhibit 7 - 3 appendices", [("7", "count", 7.0), ("3", "count", 3.0)]),
+])
+def test_a_range_runs_upward_and_a_span_of_years_is_not_a_duration(text, expected):
     assert kinds(text) == expected
 
 
@@ -247,7 +276,16 @@ def test_a_year_is_not_arithmetic_whatever_else_it_could_count():
 def test_a_range_that_states_a_change_still_licenses_it():
     (fifty,) = find("ARR grew 50%")
     assert any(fifty.matches(d) for d in derived(find("ARR went from $2M to $3M"))), "a rise is a stated change"
-    assert derived(find("the rebuild runs 18 to 24 months")) == [], "without 'from' it reads as a spread"
+    (third,) = find("backlog fell 33%")
+    assert derived(find("Unit costs ran from 2-3% of revenue.")) == [], "'from' a spread is still a spread"
+    assert not any(third.matches(d) for d in derived(find("Guidance ranges from $2-3M")))
+
+
+def test_arithmetic_needs_to_know_what_its_numbers_are():
+    counts = find("2019 closures cost less than 2024 closures")
+    assert [(q.kind, q.alt) for q in counts] == [("count", "year"), ("count", "year")]
+    assert derived(counts) == [], "a number that could be a year or a count is no basis for arithmetic"
+    assert derived(find("Riverside's 2019 figures and the board's 2024 minutes")) == []
 
 
 def test_sentences_split_on_semicolons_too():

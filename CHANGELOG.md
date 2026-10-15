@@ -8,8 +8,10 @@
 
 - A range applies the symbol, scale or unit it states once to both of its
   ends: `$2-3M` is $2M and $3M, `18-24 months` two durations, `2-3%` two
-  percentages, written with a dash set tight, `to`, or `between ... and`.
-  `$2-3M` used to read as two dollars, with the 3M dropped.
+  percentages, however the range is spaced and whichever dash writes it.
+  `$2-3M` used to read as two dollars, with the 3M dropped. A range runs
+  upward, so `the 2024-25 year` is still a year and a label line like
+  `Headcount 120 - 15%` is still a headcount.
   `US$2-3M` and `$2M-3M` read the same way. A spread is not a change, so
   `$2-3M` no longer derives "up 50%", while `from $2M to $3M` still does.
 

@@ -108,15 +108,14 @@ AMOUNT_SCALE = re.compile(AMOUNT_SCALE_WORDS, re.I)
 WORDNUM = "|".join(sorted(WORDS, key=len, reverse=True))
 
 RANGE_TAIL = rf"%|percent|per cent|[x×]|days?|weeks?|months?|quarters?|years?|{SCALE_WORDS}"
-# A range holds to one line, and its dash is set tight: " - " joins a label to a value.
+# A range holds to one line.
 H = r"[^\S\n]"
 # Every dash a word processor, LaTeX or a PDF paste leaves behind.
-RANGE_SEP = rf"(?<!\s)[-\u2010-\u2015\u2212](?!\s)|{H}+to{H}+|{H}+and{H}+"
+RANGE_SEP = rf"{H}*[-\u2010-\u2015\u2212]{H}*|{H}+to{H}+|{H}+and{H}+"
 # "and" joins two numbers in any sentence; only "between" makes them a range.
 BETWEEN = re.compile(r"\bbetween\s+(?:(?:approximately|about|roughly|around|nearly|some|circa)\s+)?$", re.I)
 # "from $2M to $3M" states a change between two numbers; any other range states one spread.
 FROM = re.compile(r"\bfrom\s+$", re.I)
-WINDOW = 48  # a cue sits just before its number; this bounds the scan back through a long passage
 # What the duration pattern itself refuses: "2-3 years over the plan".
 NOT_A_DURATION = re.compile(r"\s+(?:over|on)\b", re.I)
 
@@ -124,7 +123,7 @@ NOT_A_DURATION = re.compile(r"\s+(?:over|on)\b", re.I)
 DATE_CUES = (r"in|by|since|from|until|till|through|during|after|before|between|calendar|fiscal|fy|cy|q[1-4]"
              r"|circa|early|mid|late")
 # A determiner introduces either reading, so it overrules a noun but settles nothing.
-WEAK_CUES = r"on|for|and|or|the|this|that|last|next|our|your|their|its|his|her"
+WEAK_CUES = r"on|for|and|or|the|this|that|last|next|our|your|their|its|his|her|[a-z]+['\u2019]s"
 _CUE_END = r"[\s,.'\u2019(\[\u2013-]*$"
 DATE_CUE = re.compile(rf"(?:\b(?:{DATE_CUES})\b|©){_CUE_END}", re.I)
 YEAR_CUE = re.compile(rf"(?:\b(?:{DATE_CUES}|{WEAK_CUES})\b|©){_CUE_END}", re.I)
@@ -137,7 +136,7 @@ PLURAL_NOUN = rf"(?!(?:{'|'.join(NOT_COUNTED)})\b)[a-z]{{2,}}s|people|staff|men|
 COUNTED_NOUN = re.compile(rf"-(?!q[1-4]\b)[a-z]|\s+(?:{PLURAL_NOUN})\b", re.I)
 
 PATTERNS = [
-    ("range", re.compile(rf"(?<![\w.,$€£#@/-])(?:(?:us|ca|c|a|nz|hk|s|r)?(?P<symbol>[$€£]))?{H}?"
+    ("range", re.compile(rf"(?<![\w.$€£#@/-])(?:(?:us|ca|c|a|nz|hk|s|r)?(?P<symbol>[$€£]))?{H}?"
                          rf"(?P<low>{NUM}){H}?(?P<low_tail>{RANGE_TAIL})?(?P<sep>{RANGE_SEP})"
                          rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM}){H}?(?P<tail>{RANGE_TAIL})?(?![a-z0-9])", re.I)),
     ("currency", re.compile(rf"([$€£])\s?({NUM})\s?({SCALE_WORDS})?(?![a-z])", re.I)),
@@ -209,14 +208,17 @@ def _range(m: re.Match) -> list[Quantity]:
     text as they did before: "2019-2024" is two years, "3-4 t" is not money.
     """
     symbol, sep, repeated = m.group("symbol"), m.group("sep"), m.group("repeat")
-    if sep.strip().lower() == "and" and not BETWEEN.search(m.string[max(0, m.start() - WINDOW):m.start()]):
+    joined = sep.strip().lower()
+    if joined == "and" and not BETWEEN.search(m.string[:m.start()]):
         return []
+    if sep != sep.strip() and joined not in ("to", "and") and m.group("low_tail"):
+        return []  # "Churn 2.1% - 3 accounts lost": a spaced dash joining a label to a value
     if repeated and repeated != symbol:
         return []  # "$2 to \u20ac3M": each end carries its own currency
     low = (m.group("low_tail") or "", " " if m.start("low_tail") > m.end("low") else "")
     high = (m.group("tail") or "", " " if m.start("tail") > m.end("high") else "")
     whole = (m.start(), m.end())
-    if FROM.search(m.string[max(0, m.start() - WINDOW):m.start()]):
+    if "to" in joined and FROM.search(m.string[:m.start()]):
         low_span = (m.start(), m.end("low_tail") if m.group("low_tail") else m.end("low"))
         high_span = (m.start("repeat") if m.group("repeat") else m.start("high"), m.end())
     else:
@@ -235,14 +237,16 @@ def _range(m: re.Match) -> list[Quantity]:
                              _half_unit(number, scale), start, end, unit))
     if ends[-1].kind == "duration" and NOT_A_DURATION.match(m.string[m.end():]):
         return []
-    if ends[0].kind == "duration" and all(1950 <= e.value <= 2099 for e in ends):
-        return []  # "the 2024-2025 year" spans years; it is not 2024 of them
+    if ends[0].value > ends[1].value:
+        return []  # "the 2024-25 year" counts down, so it spans years rather than stating a duration
+    if ends[0].kind == "duration" and all(e.value >= 1000 for e in ends):
+        return []  # "the 2024-2025 year" is a span of years too, however it is written
     return ends
 
 
 def _year_or_count(m: re.Match) -> tuple[str, str]:
     """Which kind a bare 1950-2099 number is, and which it might also be."""
-    before, after = m.string[max(0, m.start() - WINDOW):m.start()], m.string[m.end():m.end() + WINDOW]
+    before, after = m.string[:m.start()], m.string[m.end():]
     noun = COUNTED_NOUN.match(after)
     hyphenated = noun is not None and noun.group(0).startswith("-")
     if noun and (not YEAR_CUE.search(before) or (hyphenated and not DATE_CUE.search(before))):
@@ -251,7 +255,7 @@ def _year_or_count(m: re.Match) -> tuple[str, str]:
 
 
 def _build(kind: str, m: re.Match) -> Quantity | None:
-    raw, s, e = m.group(0), m.start(), m.end()
+    raw, s, e = m.group(0).strip(), m.start(), m.end()
     if kind == "currency":
         scale = SCALE.get((m.group(3) or "").lower(), 1.0)
         return Quantity(raw, "currency", _num(m.group(2)) * scale, _half_unit(m.group(2), scale), s, e, m.group(1))
@@ -314,7 +318,9 @@ def derived(quantities: list[Quantity]) -> list[Quantity]:
     out = []
     for i, a in enumerate(quantities):
         for b in quantities[i + 1:]:
-            if a.group != b.group or a.temporal or a.kind == "fraction" or not a.value or not b.value:
+            if a.group != b.group or a.temporal or a.alt or b.alt or a.kind == "fraction":
+                continue
+            if not a.value or not b.value:
                 continue
             if (a.start, a.end) == (b.start, b.end):
                 continue  # one range, read at both of its ends
