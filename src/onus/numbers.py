@@ -142,8 +142,8 @@ COUNTED_NOUN = re.compile(rf"-(?!q[1-4]\b)[a-z]|\s+(?:{PLURAL_NOUN})\b", re.I)
 PATTERNS = [
     ("range", re.compile(rf"(?<![\w.$€£#@/-])(?:(?:us|ca|c|a|nz|hk|s|r)?(?P<symbol>[$€£]))?{H}?"
                          rf"(?P<low>{NUM}){H}?(?P<low_tail>{RANGE_TAIL})?(?P<sep>{RANGE_SEP})"
-                         rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM})\s?(?P<tail>{RANGE_TAIL})?(?![a-z0-9]|-[a-z])",
-                         re.I)),
+                         rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM})(?:\n(?-i:(?=[a-z]))|{H})?(?P<tail>{RANGE_TAIL})?"
+                         rf"(?![a-z0-9]|-[a-z])", re.I)),
     ("currency", re.compile(rf"([$€£])\s?({NUM})\s?({SCALE_WORDS})?(?![a-z])", re.I)),
     ("percent", re.compile(rf"(?<![\w.])({NUM})\s?(%|percent\b|per cent\b)", re.I)),
     ("fraction", re.compile(r"\b(a|one|two|three|four|nine)[\s-]+(half|halves|thirds?|quarters?|fifths?|tenths?)\b"
@@ -244,7 +244,7 @@ def _range(m: re.Match) -> list[Quantity]:
     if ends[-1].kind == "duration" and NOT_A_DURATION.match(m.string[m.end():]):
         return []
     if ends[0].value > ends[1].value:
-        return []  # "the 2024-25 year" counts down, so it spans years rather than stating a duration
+        return []  # "the 2024-25 year" counts down, so it is no range, whatever the patterns below read
     if ends[0].kind == "duration" and all(e.value >= 1000 for e in ends):
         return []  # "the 2024-2025 year" is a span of years too, however it is written
     return ends
@@ -319,7 +319,8 @@ def derived(quantities: list[Quantity]) -> list[Quantity]:
     number by coincidence.
 
     The two ends of one range are not such a pair, unless the range states a
-    change ("from $2M to $3M") rather than a spread.
+    change ("from $2M to $3M") rather than a spread; nor is a number that could
+    be a year as easily as a count.
     """
     out = []
     for i, a in enumerate(quantities):

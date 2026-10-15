@@ -172,6 +172,9 @@ def test_a_range_stays_on_one_line_though_its_tail_may_wrap():
     assert kinds("Deals closed: 2-3\nmillion-dollar accounts") == [("2", "count", 2.0),
                                                                    ("3\nmillion", "amount", 3e6)], \
         "'million-dollar' is a compound, not a scale the range shares"
+    assert kinds("covered docks 2-3\nMonths of telemetry") == [("2", "count", 2.0),
+                                                              ("3\nMonths", "duration", 3.0)], \
+        "a capital starts the next line's sentence; a wrapped tail is lowercase"
 
 
 @pytest.mark.parametrize("text, expected", [
