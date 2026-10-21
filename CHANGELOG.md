@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A deck's grouped shapes are read, including groups inside groups. A group
+  has no text of its own, so a number in a grouped KPI tile was neither checked
+  nor usable as evidence.
+
 - A count in the 1950-2099 band is no longer forced to be a year: "2000 users"
   and "2048-bit keys" are counts, "in 2000" is still a year, and either way
   the number is matched as both readings (ONS001/ONS002).

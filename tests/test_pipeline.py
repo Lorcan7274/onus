@@ -49,6 +49,23 @@ def test_decks_are_read_per_slide(tmp_path):
     assert [(b.label, b.text) for b in d.blocks] == [("slide 1", "ARR is $2.4B"), ("slide 2", "NRR is 118%")]
 
 
+def test_grouped_shapes_are_read_through_their_groups(tmp_path):
+    from pptx import Presentation
+    from pptx.util import Inches
+
+    prs = Presentation()
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    box = (Inches(1), Inches(1), Inches(4), Inches(1))
+    tile = s.shapes.add_group_shape()
+    tile.shapes.add_textbox(*box).text_frame.text = "ARR reached $9.7M"
+    tile.shapes.add_group_shape().shapes.add_textbox(*box).text_frame.text = "Payback is 14 months"
+    s.shapes.add_textbox(*box).text_frame.text = "Churn fell to 3%"
+    prs.save(tmp_path / "d.pptx")
+    d = documents.load(tmp_path / "d.pptx")
+    assert [b.text for b in d.blocks] == ["ARR reached $9.7M", "Payback is 14 months", "Churn fell to 3%"]
+    assert "$9.7M" in ev.load([tmp_path / "d.pptx"]).passages[0].text
+
+
 def test_an_unknown_format_is_an_error(tmp_path):
     (tmp_path / "x.pdf").write_text("")
     try:
