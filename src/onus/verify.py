@@ -1,7 +1,7 @@
 """Check each claim against the evidence, deterministic checks first.
 
 Tier 1 -- every quantity in a claim, parsed from its text:
-    supported    the evidence states it, at the precision it was written with
+    supported    the evidence states it, at the precision the claim was written with
     derived      a change or ratio between quantities stated in one evidence
                  sentence produces it
     unsupported  neither

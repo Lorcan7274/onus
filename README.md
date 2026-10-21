@@ -49,17 +49,20 @@ the fixture, and the checks are the assertions.
 2. **Extract claims** from two sources, merged:
    - a deterministic **scan** finds every quantity: money (`$2.4B`, `2.4
      billion`, `$2,400M` are all the same value), percentages, "two thirds",
-     multiples, counts, years, quarters (`Q1 2025`), dates, and durations;
+     multiples, counts, years, quarters (`Q1 2025`), dates, durations, and
+     ranges (`$2-3M` is $2M and $3M, each checked on its own);
    - a **pydantic-ai agent** returns typed claims, adding the ones with no
      number in them ("customers are deepening usage because…") and what each
      claim is about. Its spans must appear in the document **verbatim** or
      they're dropped, its numbers are re-parsed from the text rather than
      trusted, and any number it missed becomes a claim of its own.
 3. **Tier 1: deterministic.** Each quantity is matched against every quantity
-   in the evidence, at the precision it was written with (`$2.4B` matches
-   `$2,412M`; `42%` doesn't match `41%`). It also matches the changes and
-   ratios between quantities stated in one evidence sentence, so "1.4x, down
-   from 2.1x" supports "down 33%". **A model can't overrule this tier.**
+   in the evidence, at the precision **the claim** was written with (`$2.4B`
+   matches `$2,412M`, which rounds to it; `42%` doesn't match `41%`, and a
+   source that only said "about $2 billion" doesn't support `$2.4B`). It also
+   matches the changes and ratios between quantities stated in one evidence
+   sentence, so "1.4x, down from 2.1x" supports "down 33%". **A model can't
+   overrule this tier.**
 4. **Tier 2: judged.** A model sees a claim and the most relevant evidence
    passages, and answers supported, contradicted or unsupported. Its quote must
    appear in the evidence verbatim, or the verdict is discarded. It may judge
@@ -170,6 +173,16 @@ results vary by model and run.
   the claim). "NRR 42%" passes against "ARR up 42%". Catching a right number on
   the wrong subject is tier 2's job, and it currently judges only claims that
   tier 1 can't settle.
+- **A year and a count can look alike.** Anything from 1950 to 2099 could be
+  either, so the words around it decide which it reads as ("2000 users" is a
+  count, "in 2000" a year) and which rule code a finding gets. Matching tries
+  both readings, so such a number is supported if the evidence states it
+  either way.
+- **A range is read from one line, with its dash set tight.** A tail that
+  wraps to the next line is still read (`between 18 and 24` / `months`), but a
+  spaced dash joins a label to a value (`Headcount 12 - 15%`), so a range
+  spaced that way reads as two separate numbers, and a unit the scanner
+  doesn't know (`12-15 bikes`, `2-3 kW`) leaves the high end unchecked.
 - **Claims with a number and a qualitative part** ("118% NRR tells us expansion
   is structural") are settled by their number.
 
