@@ -51,6 +51,18 @@
                 "The rebuild runs 18-24 months.", "Margins hold at 2-3%.",
                 "The pilot serves 2000 riders.", "Each controller ships 2048-bit keys.",
                 "We launched in 2019.", "We employ the 2000 staff.", "66% of docks go east."]
+    },
+    {
+      "name": "deck: grouped KPI tiles",
+      "document": "fixtures/bike_share_kpis.pptx",
+      "evidence": ["fixtures/bike_share_facts.md"],
+      "expect": [
+        {"code": "ONS001", "number": "1.2x", "text": "1.2x"},
+        {"code": "ONS001", "number": "$3.1M", "text": "Fare revenue target of $3.1M for 2026"},
+        {"code": "ONS002", "number": "Q4 2025", "text": "Riverside internal data, Q4 2025."}
+      ],
+      "clean": ["$2.4M", "Up 42% year over year", "88%",
+                "Two thirds of new docks are going to the east bank."]
     }
   ]
 }

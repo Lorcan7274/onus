@@ -29,12 +29,22 @@ class Document:
         return "\n".join(b.text for b in self.blocks)
 
 
+def _shapes(shapes):
+    from pptx.shapes.group import GroupShape
+
+    for shape in shapes:
+        if isinstance(shape, GroupShape):
+            yield from _shapes(shape.shapes)
+        else:
+            yield shape
+
+
 def _pptx(path: Path) -> list[tuple[str, str]]:
     from pptx import Presentation
 
     out = []
     for n, slide in enumerate(Presentation(str(path)).slides, start=1):
-        for shape in slide.shapes:
+        for shape in _shapes(slide.shapes):
             frames = []
             if shape.has_text_frame:
                 frames = [shape.text_frame]
