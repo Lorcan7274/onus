@@ -150,9 +150,11 @@ What is sent: PNG, JPEG, GIF and WebP pictures placed at least an inch across
 on the page and under the API's size limit. A logo or an icon is smaller, and
 a vector picture (EMF, SVG) would need rendering first; both are skipped. A
 picture repeated across slides is read once. A note says what happened:
-`images: transcribed 2 of 7 (4 under an inch, 1 image/x-emf)`. Each picture
-is one model call; `--no-llm` or `--no-images` (`images = false` in config)
-leaves them all unread, with a note saying so.
+`images: transcribed 2 of 7 (4 under an inch across, 1 image/x-emf)`. Each
+picture is one model call; `--no-llm` or `--no-images` (`images = false` in
+config) leaves them all unread, with a note saying so. A number printed both
+in a text box and in a picture on the same slide is a claim in each place, and
+a finding in each if it fails.
 
 Native chart objects, the kind python-pptx can read values from, are not read
 yet, and pictures inside *evidence* documents are not transcribed.

@@ -35,8 +35,7 @@ class Result:
 
     def sorted(self) -> list[Finding]:
         def order(f):
-            n = re.search(r"\d+", f.label)
-            return (int(n.group()) if n else 0, f.code)
+            return ([int(n) for n in re.findall(r"\d+", f.label)], f.code)
         return sorted(self.findings, key=order)
 
 

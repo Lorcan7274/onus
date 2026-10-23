@@ -4,6 +4,8 @@ replaced by pydantic-ai's TestModel and FunctionModel."""
 import base64
 import io
 import json
+import zipfile
+from collections import Counter
 from pathlib import Path
 
 from pydantic_ai import BinaryContent
@@ -95,7 +97,9 @@ def test_pictures_are_collected_with_their_place_and_size(tmp_path):
 
     path = deck(tmp_path, "Network results", PNG)
     prs = Presentation(path)
-    prs.slides[0].shapes.add_group_shape().shapes.add_picture(io.BytesIO(PNG), Inches(7), Inches(1), Inches(0.5))
+    group = prs.slides[0].shapes.add_group_shape()
+    group.shapes.add_picture(io.BytesIO(PNG), Inches(7), Inches(1), Inches(4), Inches(4))
+    group.width = group.height = Inches(0.5)  # as PowerPoint resizes: the child keeps its own coordinates
     prs.save(path)
     d = documents.load(path)
     assert [b.text for b in d.blocks] == ["Network results"]
@@ -107,10 +111,44 @@ def test_pictures_are_collected_with_their_place_and_size(tmp_path):
     w = docx.Document()
     w.add_paragraph("ARR reached $2.4B.")
     w.add_picture(io.BytesIO(PNG), width=Inches(4), height=Inches(2))
+    table = w.add_table(rows=1, cols=2)
+    cell = table.cell(0, 0).merge(table.cell(0, 1))
+    cell.paragraphs[0].add_run().add_picture(io.BytesIO(PNG), width=Inches(2), height=Inches(1))
     w.save(tmp_path / "m.docx")
     d = documents.load(tmp_path / "m.docx")
     assert [(f.location, f.media_type, f.width, f.height, f.data) for f in d.figures] == [
-        ("paragraph 2 (image 1)", "image/png", Inches(4), Inches(2), PNG)]
+        ("paragraph 2 (image 1)", "image/png", Inches(4), Inches(2), PNG),
+        ("table 1 (image 1)", "image/png", Inches(2), Inches(1), PNG)]
+
+
+def repack(path, media, blob, content_type):
+    """Swap a deck's picture for bytes python-pptx cannot decode, declared as PowerPoint would."""
+    with zipfile.ZipFile(path) as z:
+        items = {name: z.read(name) for name in z.namelist()}
+    items[media] = blob
+    override = f'<Override PartName="/{media}" ContentType="{content_type}"/></Types>'.encode()
+    items["[Content_Types].xml"] = items["[Content_Types].xml"].replace(b"</Types>", override)
+    with zipfile.ZipFile(path, "w") as z:
+        for name, data in items.items():
+            z.writestr(name, data)
+
+
+def test_pictures_are_read_from_the_package_without_decoding_them(tmp_path):
+    from pptx import Presentation
+    from pptx.oxml.ns import qn
+
+    path = deck(tmp_path, PNG, PNG + b"\0", PNG + b"\0\0")
+    prs = Presentation(path)
+    blip = prs.slides[0].shapes[1]._element.blipFill.blip
+    blip.rEmbed, _ = None, blip.set(qn("r:link"), "rId9")
+    prs.save(path)
+    repack(path, "ppt/media/image1.png", b"RIFF....WEBPVP8 ", "image/webp")
+    repack(path, "ppt/media/image3.png", b"\1\0\0\0", "image/x-emf")
+    d = documents.load(path)
+    assert [(f.location, f.media_type, f.data) for f in d.figures] == [
+        ("slide 1 (image 1)", "image/webp", b"RIFF....WEBPVP8 "), ("slide 1 (image 3)", "image/x-emf", b"\1\0\0\0")], \
+        "a linked picture is skipped but counted; WebP and EMF are read as declared, not sniffed"
+    assert ev.load([path]).passages == []
 
 
 def test_an_unknown_format_is_an_error(tmp_path):
@@ -170,7 +208,9 @@ def test_pictures_the_model_cannot_read_are_skipped_with_a_note(tmp_path):
     assert d.blocks == [] and len(seen) == 2
     assert notes == ["images: slide 1 (image 1) not read (RuntimeError: boom)",
                      "images: transcribed 0 of 5 (1 image/x-emf, 1 nothing to check, 1 over the size limit, "
-                     "1 under an inch)"]
+                     "1 under an inch across)"]
+    strip = Document(tmp_path / "d.pptx", "pptx", [], [Figure("slide 1", 1, PNG, "image/png", 914_400 * 11, 500_000)])
+    assert images._eligible(strip.figures, Counter()), "a wide, short KPI strip is still an inch across"
 
 
 def test_a_chart_image_is_checked_like_the_text_around_it(tmp_path):
@@ -192,10 +232,10 @@ def test_a_chart_image_is_checked_like_the_text_around_it(tmp_path):
         assert result.findings == [] and result.notes == [f"images: 1 not read ({why})"]
 
 
-def test_findings_sort_by_their_place_whatever_follows_the_number():
-    r = Result(Path("d.pptx"), [], [Finding("ONS001", "", "slide 3 (image 1)", "", "error"),
-                                    Finding("ONS002", "", "slide 2", "", "error")], 0, False)
-    assert [f.label for f in r.sorted()] == ["slide 2", "slide 3 (image 1)"]
+def test_findings_sort_by_slide_then_picture():
+    labels = ["slide 3 (image 2)", "slide 3", "slide 3 (image 1)", "slide 2"]
+    r = Result(Path("d.pptx"), [], [Finding("ONS001", "", label, "", "error") for label in labels], 0, False)
+    assert [f.label for f in r.sorted()] == ["slide 2", "slide 3", "slide 3 (image 1)", "slide 3 (image 2)"]
 
 
 # -- evidence -----------------------------------------------------------------
