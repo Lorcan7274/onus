@@ -1,19 +1,26 @@
 """Evidence, claim extraction and the two verification tiers, with the model
 replaced by pydantic-ai's TestModel and FunctionModel."""
 
+import base64
+import io
 import json
+from pathlib import Path
 
+from pydantic_ai import BinaryContent
 from pydantic_ai.messages import ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
-from onus import claims, documents, verify
+from onus import claims, documents, images, verify
 from onus import evidence as ev
-from onus.engine import check
+from onus.documents import Block, Document, Figure
+from onus.engine import Finding, Result, check
 from onus.settings import Settings
 
 FACTS = ("Fare revenue $2.4B, up 42% year over year; median repair backlog 1.4x, down from 2.1x; "
          "24 active stations. Plans: east bank, night shuttle, and cargo bikes.")
+PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5Erk"
+                       "Jggg==")
 
 
 def doc(tmp_path, text, name="memo.md"):
@@ -66,6 +73,46 @@ def test_grouped_shapes_are_read_through_their_groups(tmp_path):
     assert "$9.7M" in ev.load([tmp_path / "d.pptx"]).passages[0].text
 
 
+def deck(tmp_path, *shapes):
+    """A one-slide deck: a text box per string, a picture per bytes."""
+    from pptx import Presentation
+    from pptx.util import Inches
+
+    prs = Presentation()
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    for shape in shapes:
+        if isinstance(shape, str):
+            s.shapes.add_textbox(Inches(1), Inches(1), Inches(4), Inches(1)).text_frame.text = shape
+        else:
+            s.shapes.add_picture(io.BytesIO(shape), Inches(1), Inches(2), width=Inches(5), height=Inches(3))
+    prs.save(tmp_path / "d.pptx")
+    return tmp_path / "d.pptx"
+
+
+def test_pictures_are_collected_with_their_place_and_size(tmp_path):
+    from pptx import Presentation
+    from pptx.util import Inches
+
+    path = deck(tmp_path, "Network results", PNG)
+    prs = Presentation(path)
+    prs.slides[0].shapes.add_group_shape().shapes.add_picture(io.BytesIO(PNG), Inches(7), Inches(1), Inches(0.5))
+    prs.save(path)
+    d = documents.load(path)
+    assert [b.text for b in d.blocks] == ["Network results"]
+    assert [(f.location, f.media_type, f.width, f.data) for f in d.figures] == [
+        ("slide 1 (image 1)", "image/png", Inches(5), PNG), ("slide 1 (image 2)", "image/png", Inches(0.5), PNG)]
+
+    import docx
+
+    w = docx.Document()
+    w.add_paragraph("ARR reached $2.4B.")
+    w.add_picture(io.BytesIO(PNG), width=Inches(4), height=Inches(2))
+    w.save(tmp_path / "m.docx")
+    d = documents.load(tmp_path / "m.docx")
+    assert [(f.location, f.media_type, f.width, f.height, f.data) for f in d.figures] == [
+        ("paragraph 2 (image 1)", "image/png", Inches(4), Inches(2), PNG)]
+
+
 def test_an_unknown_format_is_an_error(tmp_path):
     (tmp_path / "x.pdf").write_text("")
     try:
@@ -74,6 +121,81 @@ def test_an_unknown_format_is_an_error(tmp_path):
         assert "unsupported format" in str(e)
     else:
         raise AssertionError
+
+
+# -- images -------------------------------------------------------------------
+
+def figure(label, data=PNG, media="image/png", side=914_400 * 3):
+    return Figure(label, 1, data, media, side, side)
+
+
+def transcribed(tool, kind, *lines):
+    return ModelResponse(parts=[ToolCallPart(tool, {"kind": kind, "lines": list(lines)})])
+
+
+def test_pictures_are_transcribed_into_blocks_under_their_location(tmp_path):
+    calls = []
+
+    def answer(messages, info: AgentInfo):
+        calls.append(messages[0].parts[-1].content)
+        return transcribed(info.output_tools[0].name, "chart", "Fare revenue, 2025: $3.1M", "Renewal: 88%",
+                           "Renewal: 88%")
+
+    d = Document(tmp_path / "d.pptx", "pptx", [Block(0, "slide 1", "Network results")],
+                 [figure("slide 1"), figure("slide 2")])
+    notes = images.transcribe(d, FunctionModel(answer))
+    assert [(b.label, b.text) for b in d.blocks[1:]] == [
+        ("slide 1 (image 1)", "Fare revenue, 2025: $3.1M"), ("slide 1 (image 1)", "Renewal: 88%"),
+        ("slide 2 (image 1)", "Fare revenue, 2025: $3.1M"), ("slide 2 (image 1)", "Renewal: 88%")]
+    assert len(calls) == 1, "a picture repeated across slides is read once"
+    image, text = calls[0]
+    assert isinstance(image, BinaryContent) and image.data == PNG and image.media_type == "image/png"
+    assert text.startswith("slide 1 (image 1) of d.pptx") and "Network results" in text
+    assert notes == ["images: transcribed 2 of 2"]
+
+
+def test_pictures_the_model_cannot_read_are_skipped_with_a_note(tmp_path):
+    seen = []
+
+    def answer(messages, info: AgentInfo):
+        seen.append(messages[0].parts[-1].content[0].data)
+        if seen[-1] == PNG:
+            raise RuntimeError("boom")
+        return transcribed(info.output_tools[0].name, "none")
+
+    d = Document(tmp_path / "d.pptx", "pptx", [], [
+        figure("slide 1"), figure("slide 2", data=PNG + b"\0"), figure("slide 3", media="image/x-emf"),
+        figure("slide 4", side=914_400 - 1), figure("slide 5", data=b"x" * (images.MAX_IMAGE_BYTES + 1))])
+    notes = images.transcribe(d, FunctionModel(answer))
+    assert d.blocks == [] and len(seen) == 2
+    assert notes == ["images: slide 1 (image 1) not read (RuntimeError: boom)",
+                     "images: transcribed 0 of 5 (1 image/x-emf, 1 nothing to check, 1 over the size limit, "
+                     "1 under an inch)"]
+
+
+def test_a_chart_image_is_checked_like_the_text_around_it(tmp_path):
+    path = deck(tmp_path, "Network results", PNG)
+
+    def answer(messages, info: AgentInfo):
+        tool, content = info.output_tools[0].name, messages[0].parts[-1].content
+        if isinstance(content, list):
+            return transcribed(tool, "chart", "Fare revenue, 2026: $3.1M")
+        return ModelResponse(parts=[ToolCallPart(tool, {"claims": []})])
+
+    e = ev.load(texts=["Fare revenue $2.4M in 2026."])
+    result = check(path, e, Settings(), model=FunctionModel(answer))
+    assert [(f.code, f.label, f.snippet) for f in result.findings] == [
+        ("ONS001", "slide 1 (image 1)", "Fare revenue, 2026: $3.1M")]
+    assert result.notes == ["images: transcribed 1 of 1"]
+    for settings, why in ((Settings(llm=False), "--no-llm"), (Settings(images=False), "--no-images")):
+        result = check(path, e, settings, model=FunctionModel(answer))
+        assert result.findings == [] and result.notes == [f"images: 1 not read ({why})"]
+
+
+def test_findings_sort_by_their_place_whatever_follows_the_number():
+    r = Result(Path("d.pptx"), [], [Finding("ONS001", "", "slide 3 (image 1)", "", "error"),
+                                    Finding("ONS002", "", "slide 2", "", "error")], 0, False)
+    assert [f.label for f in r.sorted()] == ["slide 2", "slide 3 (image 1)"]
 
 
 # -- evidence -----------------------------------------------------------------

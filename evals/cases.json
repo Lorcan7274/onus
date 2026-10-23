@@ -63,6 +63,18 @@
       ],
       "clean": ["$2.4M", "Up 42% year over year", "88%",
                 "Two thirds of new docks are going to the east bank."]
+    },
+    {
+      "name": "deck: charts as pictures",
+      "document": "fixtures/bike_share_charts.pptx",
+      "evidence": ["fixtures/bike_share_facts.md"],
+      "expect": [
+        {"code": "ONS001", "model": true, "number": "1.2x", "text": "1.2x"},
+        {"code": "ONS002", "model": true, "number": "Q4 2025", "text": "Q4 2025"},
+        {"code": "ONS001", "model": true, "number": "$3.1M", "text": "$3.1M"}
+      ],
+      "clean": ["2.1x", "1.4x", "Down 33%", "$2.4M", "Up 42% year over year", "88%",
+                "Two thirds of new docks are going to the east bank."]
     }
   ]
 }

@@ -45,7 +45,7 @@ onus is a small test pipeline. The claims are the test cases, the evidence is
 the fixture, and the checks are the assertions.
 
 1. **Read** the document into blocks: text frames per slide, paragraphs, table
-   cells.
+   cells. A deck's pictures are transcribed by the model (see [Images](#images)).
 2. **Extract claims** from two sources, merged:
    - a deterministic **scan** finds every quantity: money (`$2.4B`, `2.4
      billion`, `$2,400M` are all the same value), percentages, "two thirds",
@@ -120,6 +120,43 @@ under this one none did, and the one true number still passed. On the deck's
 42 real numbered claims, one, a chart label "Build 6", went from "supported"
 (by "drifted on six axes") to flagged, which was correct.
 
+## Images
+
+Charts in a pitch deck are mostly pictures: exported from Canva or Google
+Slides, pasted from a screenshot. onus sends each picture a reader could
+check (a chart, a table, a KPI tile, a screenshot) to the model, which
+transcribes what is **printed** in it, one statement per line, every number
+next to the words that say what it is:
+
+```
+Fare revenue, 2025: $3.1M
+Member renewal: 88%
+```
+
+The lines then go through the pipeline like any text on the slide: the scan
+finds their numbers, tier 1 checks them against the evidence, and the
+extractor and judge see the rest. A finding names the picture:
+
+```
+deck.pptx:slide 3 (image 1): ONS001 $3.1M: no number like it in the evidence
+    Fare revenue, 2025: $3.1M
+```
+
+The model may only write down what is printed. A bar's height read off an
+axis is an estimate, not a claim, so it is never transcribed, and tier 1 never
+sees a number the deck did not state.
+
+What is sent: PNG, JPEG, GIF and WebP pictures placed at least an inch across
+on the page and under the API's size limit. A logo or an icon is smaller, and
+a vector picture (EMF, SVG) would need rendering first; both are skipped. A
+picture repeated across slides is read once. A note says what happened:
+`images: transcribed 2 of 7 (4 under an inch, 1 image/x-emf)`. Each picture
+is one model call; `--no-llm` or `--no-images` (`images = false` in config)
+leaves them all unread, with a note saying so.
+
+Native chart objects, the kind python-pptx can read values from, are not read
+yet, and pictures inside *evidence* documents are not transcribed.
+
 ## Rules
 
 | Code | Checked by | Rule |
@@ -185,6 +222,10 @@ results vary by model and run.
   doesn't know (`12-15 bikes`, `2-3 kW`) leaves the high end unchecked.
 - **Claims with a number and a qualitative part** ("118% NRR tells us expansion
   is structural") are settled by their number.
+- **A chart is read as a picture, or not at all.** A native chart object
+  contributes nothing yet, and a picture of one contributes only what is
+  printed in it, as the model reads it: a value it cannot make out, or a
+  number it misreads, is a miss or a false finding in the model tier.
 
 ## Configuration
 
@@ -196,6 +237,7 @@ select = ["ONS0", "ONS1"]
 ignore = ["ONS003"]
 extend-select = ["ONS004"]
 llm = true
+images = true                            # transcribe pictures with the model
 model = "anthropic:claude-sonnet-5-5"    # any pydantic-ai model string
 judge-threshold = 0.7
 concurrency = 8
