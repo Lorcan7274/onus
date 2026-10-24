@@ -90,7 +90,7 @@ def _pptx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
         for shape in _shapes(slide.shapes):
             if isinstance(shape, Picture):
                 pictures += 1
-                # python-pptx's Image wrapper sniffs the bytes with Pillow to name their type; the part knows it
+                # python-pptx's Image wrapper decodes the bytes to name their type; the part already knows it
                 rId = shape._element.blip_rId
                 if rId is None:  # a linked picture has no bytes in the file
                     continue
