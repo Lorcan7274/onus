@@ -244,7 +244,9 @@ def test_pictures_the_model_cannot_read_are_skipped_with_a_note(tmp_path):
 
 
 def test_a_chart_image_is_checked_like_the_text_around_it(tmp_path):
-    path = deck(tmp_path, "Network results", PNG)
+    from onus.report import as_dict
+
+    path = deck(tmp_path, "Fare revenue $2.4M", PNG)
 
     def answer(messages, info: AgentInfo):
         tool, content = info.output_tools[0].name, messages[0].parts[-1].content
@@ -257,6 +259,8 @@ def test_a_chart_image_is_checked_like_the_text_around_it(tmp_path):
     assert [(f.code, f.label, f.snippet) for f in result.findings] == [
         ("ONS001", "slide 1 (image 1)", "Fare revenue, 2026: $3.1M")]
     assert result.notes == ["images: transcribed 1 of 1"]
+    assert [(c["origin"], c["status"]) for c in as_dict(result)["claims"]] == [
+        ("text", "supported"), ("image", "unsupported")]
     for settings, why in ((Settings(llm=False), "--no-llm"), (Settings(images=False), "--no-images")):
         result = check(path, e, settings, model=FunctionModel(answer))
         assert result.findings == [] and result.notes == [f"images: 1 not read ({why})"]

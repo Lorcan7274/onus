@@ -160,6 +160,9 @@ printed both in a text box and in a picture on the same slide is a claim in
 each place, and a finding in each if it fails, but a line the picture prints
 that the slide also prints as text is not added again. In a Word document,
 pictures in paragraphs and table cells are read; headers and footers are not.
+In the JSON report, a claim's `origin` says whether it came from the
+document's text or from a picture's transcription, where a number is only as
+good as the model's reading of it.
 
 Native chart objects, the kind python-pptx can read values from, are not read
 yet, and pictures inside *evidence* documents are not transcribed.

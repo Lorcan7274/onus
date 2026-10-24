@@ -21,6 +21,7 @@ class Block:
     id: int
     label: str  # "slide 3", "paragraph 12", "line 40"
     text: str
+    origin: str = "text"  # "text" | "image": a transcription is only as good as the model's reading
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ class Document:
     def text(self) -> str:
         return "\n".join(b.text for b in self.blocks)
 
-    def extend(self, items: Iterable[tuple[str, str]]) -> None:
+    def extend(self, items: Iterable[tuple[str, str]], origin: str = "text") -> None:
         seen = {(b.label, b.text) for b in self.blocks}
         for label, text in items:
             text = " ".join(text.split())
@@ -65,7 +66,7 @@ class Document:
             if (label, text) in seen:  # a slide repeats its eyebrow, a table its header
                 continue
             seen.add((label, text))
-            self.blocks.append(Block(len(self.blocks), label, text))
+            self.blocks.append(Block(len(self.blocks), label, text, origin))
 
 
 def _shapes(shapes):

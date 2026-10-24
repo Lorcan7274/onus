@@ -113,7 +113,7 @@ def transcribe(doc: Document, model, concurrency: int = 8) -> list[str]:
                 read += len(copies)
                 for f in copies:
                     printed = {_norm(b.text) for b in doc.blocks if b.label == f.label}
-                    doc.extend((f.location, line) for line in result.lines if _norm(line) not in printed)
+                    doc.extend(((f.location, line) for line in result.lines if _norm(line) not in printed), "image")
     detail = ", ".join(f"{n} {r}" for r, n in sorted(skipped.items(), key=lambda x: (-x[1], x[0])))
     notes.append(f"images: transcribed {read} of {len(doc.figures)}" + (f" ({detail})" if detail else ""))
     return notes
