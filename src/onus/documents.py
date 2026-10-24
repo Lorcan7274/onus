@@ -12,6 +12,7 @@ from pathlib import Path
 
 # A block that is only a short number is a page number or a list marker.
 _BARE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
+_MEDIA_ALIASES = {"image/jpg": "image/jpeg", "image/x-png": "image/png"}
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,10 @@ class Figure:
     @property
     def location(self) -> str:
         return f"{self.label} (image {self.ordinal})"
+
+
+def _media(content_type: str) -> str:
+    return _MEDIA_ALIASES.get(content_type.lower(), content_type.lower())
 
 
 @dataclass
@@ -77,11 +82,15 @@ def _pptx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
         for shape in _shapes(slide.shapes):
             if isinstance(shape, Picture):
                 pictures += 1
+                # python-pptx's Image wrapper sniffs the bytes with Pillow to name their type; the part knows it
                 rId = shape._element.blip_rId
                 if rId is None:  # a linked picture has no bytes in the file
                     continue
-                part = shape.part.related_part(rId)
-                figures.append(Figure(f"slide {n}", pictures, part.blob, part.content_type))
+                try:
+                    part = shape.part.related_part(rId)
+                except (KeyError, ValueError):  # a dangling or external relationship
+                    continue
+                figures.append(Figure(f"slide {n}", pictures, part.blob, _media(part.content_type)))
                 continue
             frames = []
             if shape.has_text_frame:
@@ -106,11 +115,11 @@ def _docx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
         for p in paragraphs:
             for drawing in p._p.xpath(".//w:drawing"):
                 rids = drawing.xpath(".//a:blip/@r:embed")
-                if not rids:  # a native chart or SmartArt, not a picture
+                part = d.part.related_parts.get(rids[0]) if rids else None
+                if part is None:  # a native chart or SmartArt, or a linked picture
                     continue
                 pictures[label] += 1
-                part = d.part.related_parts[rids[0]]
-                figures.append(Figure(label, pictures[label], part.blob, part.content_type))
+                figures.append(Figure(label, pictures[label], part.blob, _media(part.content_type)))
 
     for i, p in enumerate(d.paragraphs, start=1):
         texts.append((f"paragraph {i}", p.text))

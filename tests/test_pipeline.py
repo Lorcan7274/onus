@@ -129,22 +129,56 @@ def repack(path, media, blob, content_type):
             z.writestr(name, data)
 
 
-def test_pictures_are_read_from_the_package_without_decoding_them(tmp_path):
+def unlink(path, index=0):
+    """Make a saved deck's picture a link to a file outside it, as a deck pasted from the web may be."""
     from pptx import Presentation
     from pptx.oxml.ns import qn
 
-    path = deck(tmp_path, PNG, PNG + b"\0", PNG + b"\0\0")
     prs = Presentation(path)
-    blip = prs.slides[0].shapes[1]._element.blipFill.blip
-    blip.rEmbed, _ = None, blip.set(qn("r:link"), "rId9")
+    blip = [s for s in prs.slides[0].shapes if s.shape_type == 13][index]._element.blipFill.blip
+    del blip.attrib[qn("r:embed")]
+    blip.set(qn("r:link"), "rId99")
     prs.save(path)
+
+
+def test_picture_types_are_read_as_declared_not_sniffed(tmp_path):
+    path = deck(tmp_path, PNG, PNG + b"\0", PNG + b"\0\0", PNG + b"\0\0\0")
+    unlink(path, 1)
     repack(path, "ppt/media/image1.png", b"RIFF....WEBPVP8 ", "image/webp")
     repack(path, "ppt/media/image3.png", b"\1\0\0\0", "image/x-emf")
+    repack(path, "ppt/media/image4.png", PNG, "image/JPG")
     d = documents.load(path)
     assert [(f.location, f.media_type, f.data) for f in d.figures] == [
-        ("slide 1 (image 1)", "image/webp", b"RIFF....WEBPVP8 "), ("slide 1 (image 3)", "image/x-emf", b"\1\0\0\0")], \
-        "a linked picture is skipped but counted; WebP and EMF are read as declared, not sniffed"
+        ("slide 1 (image 1)", "image/webp", b"RIFF....WEBPVP8 "), ("slide 1 (image 3)", "image/x-emf", b"\1\0\0\0"),
+        ("slide 1 (image 4)", "image/jpeg", PNG)], \
+        "a linked picture is skipped but counted; WebP, EMF and a generator's image/JPG are read as declared"
     assert ev.load([path]).passages == []
+
+
+def test_pictures_are_read_without_decoding_them(tmp_path, monkeypatch):
+    import docx
+    from pptx.util import Inches
+
+    path = deck(tmp_path, "Network results", PNG)
+    w = docx.Document()
+    w.add_picture(io.BytesIO(PNG), width=Inches(4), height=Inches(2))
+    w.save(tmp_path / "m.docx")
+
+    def decoded(*a, **kw):
+        raise AssertionError("decoded a picture")
+    monkeypatch.setattr("PIL.Image.open", decoded)
+    assert [(f.location, f.media_type, f.data) for f in documents.load(path).figures] == [
+        ("slide 1 (image 1)", "image/png", PNG)]
+    assert [(f.location, f.media_type, f.data) for f in documents.load(tmp_path / "m.docx").figures] == [
+        ("paragraph 1 (image 1)", "image/png", PNG)]
+
+
+def test_a_linked_picture_is_skipped(tmp_path):
+    path = deck(tmp_path, "Network results", PNG)
+    unlink(path)
+    d = documents.load(path)
+    assert [b.text for b in d.blocks] == ["Network results"] and d.figures == []
+    assert ev.load([path]).passages[0].text == "Network results"
 
 
 def test_an_unknown_format_is_an_error(tmp_path):
