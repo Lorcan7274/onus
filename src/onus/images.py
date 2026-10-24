@@ -9,10 +9,11 @@ extractor and judge see them too. Only what is printed is written down. A
 bar's height read off an axis is an estimate, not a claim, so tier 1 never
 sees a number the document did not state.
 
-Only what the model can read is sent: PNG, JPEG, GIF and WebP under the
-API's size limit, placed at least an inch across on the page; smaller is a
-logo or an icon, and a vector format (EMF, SVG) would need rendering first.
-A picture repeated across slides is read once.
+Every picture goes to the model, which says when there is nothing to check
+(a photo, a logo); nothing here judges a picture by its size or looks. The
+only ones held back are those the API refuses: a vector format (EMF, SVG),
+which would need rendering first, and a file over its size limit. A picture
+repeated across slides is read once.
 """
 
 from __future__ import annotations
@@ -28,7 +29,6 @@ from onus.documents import Document, Figure
 
 MEDIA_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 MAX_IMAGE_BYTES = 3_750_000  # the API's 5 MB per image, before base64 adds a third
-MIN_ACROSS_EMU = 914_400  # one inch on the page
 
 TRANSCRIBE_INSTRUCTIONS = """You transcribe a picture from a document so that what it prints can be fact-checked.
 
@@ -54,13 +54,11 @@ class Transcript(BaseModel):
 
 
 def _eligible(figures: list[Figure], skipped: Counter) -> dict[str, list[Figure]]:
-    """The pictures worth a model call, grouped by content so a repeated one is read once."""
+    """The pictures the API will take, grouped by content so a repeated one is read once."""
     todo: dict[str, list[Figure]] = {}
     for f in figures:
         if f.media_type not in MEDIA_TYPES:
             skipped[f.media_type] += 1
-        elif max(f.width, f.height) < MIN_ACROSS_EMU:
-            skipped["under an inch across"] += 1
         elif len(f.data) > MAX_IMAGE_BYTES:
             skipped["over the size limit"] += 1
         else:

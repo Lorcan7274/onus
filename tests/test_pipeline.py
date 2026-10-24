@@ -5,7 +5,6 @@ import base64
 import io
 import json
 import zipfile
-from collections import Counter
 from pathlib import Path
 
 from pydantic_ai import BinaryContent
@@ -91,20 +90,18 @@ def deck(tmp_path, *shapes):
     return tmp_path / "d.pptx"
 
 
-def test_pictures_are_collected_with_their_place_and_size(tmp_path):
+def test_pictures_are_collected_with_their_place(tmp_path):
     from pptx import Presentation
     from pptx.util import Inches
 
     path = deck(tmp_path, "Network results", PNG)
     prs = Presentation(path)
-    group = prs.slides[0].shapes.add_group_shape()
-    group.shapes.add_picture(io.BytesIO(PNG), Inches(7), Inches(1), Inches(4), Inches(4))
-    group.width = group.height = Inches(0.5)  # as PowerPoint resizes: the child keeps its own coordinates
+    prs.slides[0].shapes.add_group_shape().shapes.add_picture(io.BytesIO(PNG + b"\0"), Inches(7), Inches(1), Inches(1))
     prs.save(path)
     d = documents.load(path)
     assert [b.text for b in d.blocks] == ["Network results"]
-    assert [(f.location, f.media_type, f.width, f.data) for f in d.figures] == [
-        ("slide 1 (image 1)", "image/png", Inches(5), PNG), ("slide 1 (image 2)", "image/png", Inches(0.5), PNG)]
+    assert [(f.location, f.media_type, f.data) for f in d.figures] == [
+        ("slide 1 (image 1)", "image/png", PNG), ("slide 1 (image 2)", "image/png", PNG + b"\0")]
 
     import docx
 
@@ -116,9 +113,8 @@ def test_pictures_are_collected_with_their_place_and_size(tmp_path):
     cell.paragraphs[0].add_run().add_picture(io.BytesIO(PNG), width=Inches(2), height=Inches(1))
     w.save(tmp_path / "m.docx")
     d = documents.load(tmp_path / "m.docx")
-    assert [(f.location, f.media_type, f.width, f.height, f.data) for f in d.figures] == [
-        ("paragraph 2 (image 1)", "image/png", Inches(4), Inches(2), PNG),
-        ("table 1 (image 1)", "image/png", Inches(2), Inches(1), PNG)]
+    assert [(f.location, f.media_type, f.data) for f in d.figures] == [
+        ("paragraph 2 (image 1)", "image/png", PNG), ("table 1 (image 1)", "image/png", PNG)]
 
 
 def repack(path, media, blob, content_type):
@@ -163,8 +159,8 @@ def test_an_unknown_format_is_an_error(tmp_path):
 
 # -- images -------------------------------------------------------------------
 
-def figure(label, data=PNG, media="image/png", side=914_400 * 3):
-    return Figure(label, 1, data, media, side, side)
+def figure(label, data=PNG, media="image/png"):
+    return Figure(label, 1, data, media)
 
 
 def transcribed(tool, kind, *lines):
@@ -203,14 +199,11 @@ def test_pictures_the_model_cannot_read_are_skipped_with_a_note(tmp_path):
 
     d = Document(tmp_path / "d.pptx", "pptx", [], [
         figure("slide 1"), figure("slide 2", data=PNG + b"\0"), figure("slide 3", media="image/x-emf"),
-        figure("slide 4", side=914_400 - 1), figure("slide 5", data=b"x" * (images.MAX_IMAGE_BYTES + 1))])
+        figure("slide 4", data=b"x" * (images.MAX_IMAGE_BYTES + 1))])
     notes = images.transcribe(d, FunctionModel(answer))
     assert d.blocks == [] and len(seen) == 2
     assert notes == ["images: slide 1 (image 1) not read (RuntimeError: boom)",
-                     "images: transcribed 0 of 5 (1 image/x-emf, 1 nothing to check, 1 over the size limit, "
-                     "1 under an inch across)"]
-    strip = Document(tmp_path / "d.pptx", "pptx", [], [Figure("slide 1", 1, PNG, "image/png", 914_400 * 11, 500_000)])
-    assert images._eligible(strip.figures, Counter()), "a wide, short KPI strip is still an inch across"
+                     "images: transcribed 0 of 4 (1 image/x-emf, 1 nothing to check, 1 over the size limit)"]
 
 
 def test_a_chart_image_is_checked_like_the_text_around_it(tmp_path):

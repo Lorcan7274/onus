@@ -146,15 +146,16 @@ The model may only write down what is printed. A bar's height read off an
 axis is an estimate, not a claim, so it is never transcribed, and tier 1 never
 sees a number the deck did not state.
 
-What is sent: PNG, JPEG, GIF and WebP pictures placed at least an inch across
-on the page and under the API's size limit. A logo or an icon is smaller, and
-a vector picture (EMF, SVG) would need rendering first; both are skipped. A
-picture repeated across slides is read once. A note says what happened:
-`images: transcribed 2 of 7 (4 under an inch across, 1 image/x-emf)`. Each
-picture is one model call; `--no-llm` or `--no-images` (`images = false` in
-config) leaves them all unread, with a note saying so. A number printed both
-in a text box and in a picture on the same slide is a claim in each place, and
-a finding in each if it fails.
+Every picture goes to the model, which says when there is nothing to check:
+a photo, a logo, an icon. onus does not judge a picture by its size or its
+looks. The only pictures held back are the ones the API refuses, a vector
+format (EMF, SVG) that would need rendering first and a file over its size
+limit; PNG, JPEG, GIF and WebP go through. A picture repeated across slides is
+read once. A note says what happened: `images: transcribed 2 of 7 (4 nothing
+to check, 1 image/x-emf)`. Each distinct picture is one model call; `--no-llm`
+or `--no-images` (`images = false` in config) leaves them all unread, with a
+note saying so. A number printed both in a text box and in a picture on the
+same slide is a claim in each place, and a finding in each if it fails.
 
 Native chart objects, the kind python-pptx can read values from, are not read
 yet, and pictures inside *evidence* documents are not transcribed.

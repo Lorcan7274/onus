@@ -27,8 +27,6 @@ class Figure:
     ordinal: int
     data: bytes
     media_type: str
-    width: int  # as placed on the page, in EMU
-    height: int
 
     @property
     def location(self) -> str:
@@ -58,24 +56,14 @@ class Document:
             self.blocks.append(Block(len(self.blocks), label, text))
 
 
-def _scale(group) -> tuple[float, float]:
-    """How a group's child coordinates map to the page: its children keep their size when it is resized."""
-    xfrm = group._element.xfrm
-    ext, child = xfrm.ext, xfrm.chExt
-    if ext is None or child is None or not (child.cx and child.cy):
-        return 1.0, 1.0
-    return ext.cx / child.cx, ext.cy / child.cy
-
-
-def _shapes(shapes, sx: float = 1.0, sy: float = 1.0):
+def _shapes(shapes):
     from pptx.shapes.group import GroupShape
 
     for shape in shapes:
         if isinstance(shape, GroupShape):
-            gx, gy = _scale(shape)
-            yield from _shapes(shape.shapes, sx * gx, sy * gy)
+            yield from _shapes(shape.shapes)
         else:
-            yield shape, sx, sy
+            yield shape
 
 
 def _pptx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
@@ -86,15 +74,14 @@ def _pptx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
     figures: list[Figure] = []
     for n, slide in enumerate(Presentation(str(path)).slides, start=1):
         pictures = 0
-        for shape, sx, sy in _shapes(slide.shapes):
+        for shape in _shapes(slide.shapes):
             if isinstance(shape, Picture):
                 pictures += 1
                 rId = shape._element.blip_rId
                 if rId is None:  # a linked picture has no bytes in the file
                     continue
                 part = shape.part.related_part(rId)
-                figures.append(Figure(f"slide {n}", pictures, part.blob, part.content_type,
-                                      int(shape.width * sx), int(shape.height * sy)))
+                figures.append(Figure(f"slide {n}", pictures, part.blob, part.content_type))
                 continue
             frames = []
             if shape.has_text_frame:
@@ -123,8 +110,7 @@ def _docx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
                     continue
                 pictures[label] += 1
                 part = d.part.related_parts[rids[0]]
-                cx, cy = (int(v[0]) if v else 0 for v in (drawing.xpath(f".//wp:extent/@{a}") for a in ("cx", "cy")))
-                figures.append(Figure(label, pictures[label], part.blob, part.content_type, cx, cy))
+                figures.append(Figure(label, pictures[label], part.blob, part.content_type))
 
     for i, p in enumerate(d.paragraphs, start=1):
         texts.append((f"paragraph {i}", p.text))
