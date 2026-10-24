@@ -113,8 +113,9 @@ def test_pictures_are_collected_with_their_place(tmp_path):
     cell.paragraphs[0].add_run().add_picture(io.BytesIO(PNG), width=Inches(2), height=Inches(1))
     w.save(tmp_path / "m.docx")
     d = documents.load(tmp_path / "m.docx")
-    assert [(f.location, f.media_type, f.data) for f in d.figures] == [
-        ("paragraph 2 (image 1)", "image/png", PNG), ("table 1 (image 1)", "image/png", PNG)]
+    assert [(f.location, f.media_type, f.data, f.alt) for f in d.figures] == [
+        ("paragraph 2 (image 1)", "image/png", PNG, ""), ("table 1 (image 1)", "image/png", PNG, "")], \
+        "a picture in a merged cell is read once; a file-name alt text is no alt text"
 
 
 def repack(path, media, blob, content_type):
@@ -193,8 +194,8 @@ def test_an_unknown_format_is_an_error(tmp_path):
 
 # -- images -------------------------------------------------------------------
 
-def figure(label, data=PNG, media="image/png"):
-    return Figure(label, 1, data, media)
+def figure(label, data=PNG, media="image/png", alt=""):
+    return Figure(label, 1, data, media, alt)
 
 
 def transcribed(tool, kind, *lines):
@@ -206,19 +207,21 @@ def test_pictures_are_transcribed_into_blocks_under_their_location(tmp_path):
 
     def answer(messages, info: AgentInfo):
         calls.append(messages[0].parts[-1].content)
-        return transcribed(info.output_tools[0].name, "chart", "Fare revenue, 2025: $3.1M", "Renewal: 88%",
-                           "Renewal: 88%")
+        return transcribed(info.output_tools[0].name, "chart", "Network  results", "Fare revenue, 2025: $3.1M",
+                           "Renewal: 88%", "Renewal: 88%")
 
     d = Document(tmp_path / "d.pptx", "pptx", [Block(0, "slide 1", "Network results")],
-                 [figure("slide 1"), figure("slide 2")])
+                 [figure("slide 1", alt="Repair backlog chart"), figure("slide 2")])
     notes = images.transcribe(d, FunctionModel(answer))
     assert [(b.label, b.text) for b in d.blocks[1:]] == [
         ("slide 1 (image 1)", "Fare revenue, 2025: $3.1M"), ("slide 1 (image 1)", "Renewal: 88%"),
-        ("slide 2 (image 1)", "Fare revenue, 2025: $3.1M"), ("slide 2 (image 1)", "Renewal: 88%")]
+        ("slide 2 (image 1)", "Network results"),
+        ("slide 2 (image 1)", "Fare revenue, 2025: $3.1M"), ("slide 2 (image 1)", "Renewal: 88%")], \
+        "a line the slide already prints as text is not added again under its picture"
     assert len(calls) == 1, "a picture repeated across slides is read once"
     image, text = calls[0]
     assert isinstance(image, BinaryContent) and image.data == PNG and image.media_type == "image/png"
-    assert text.startswith("slide 1 (image 1) of d.pptx") and "Network results" in text
+    assert text.startswith("slide 1 (image 1) of d.pptx") and "Alt text: Repair backlog chart\nNetwork results" in text
     assert notes == ["images: transcribed 2 of 2"]
 
 

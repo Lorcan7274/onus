@@ -66,10 +66,15 @@ def _eligible(figures: list[Figure], skipped: Counter) -> dict[str, list[Figure]
     return todo
 
 
+def _norm(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
 def _prompt(doc: Document, figure: Figure) -> list:
     from pydantic_ai import BinaryContent
 
-    beside = [b.text for b in doc.blocks if b.label == figure.label]
+    beside = [f"Alt text: {figure.alt}"] if figure.alt else []
+    beside += [b.text for b in doc.blocks if b.label == figure.label]
     text = f"{figure.location} of {doc.path.name}."
     if beside:
         text += " Text beside it, to name what it shows (do not copy it):\n" + "\n".join(beside)
@@ -106,7 +111,9 @@ def transcribe(doc: Document, model, concurrency: int = 8) -> list[str]:
                 skipped["nothing to check"] += len(copies)
             else:
                 read += len(copies)
-                doc.extend((f.location, line) for f in copies for line in result.lines)
+                for f in copies:
+                    printed = {_norm(b.text) for b in doc.blocks if b.label == f.label}
+                    doc.extend((f.location, line) for line in result.lines if _norm(line) not in printed)
     detail = ", ".join(f"{n} {r}" for r, n in sorted(skipped.items(), key=lambda x: (-x[1], x[0])))
     notes.append(f"images: transcribed {read} of {len(doc.figures)}" + (f" ({detail})" if detail else ""))
     return notes

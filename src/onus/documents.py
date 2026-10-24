@@ -5,7 +5,6 @@ are collected alongside, for the model to transcribe (images.py)."""
 from __future__ import annotations
 
 import re
-from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,6 +12,8 @@ from pathlib import Path
 # A block that is only a short number is a page number or a list marker.
 _BARE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
 _MEDIA_ALIASES = {"image/jpg": "image/jpeg", "image/x-png": "image/png"}
+# Alt text a generator fills with the file name says nothing about the picture.
+_FILE_NAME = re.compile(r"[\w .-]+\.(?:png|jpe?g|gif|webp|svg|emf|bmp|tiff?)", re.I)
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,7 @@ class Figure:
     ordinal: int
     data: bytes
     media_type: str
+    alt: str = ""
 
     @property
     def location(self) -> str:
@@ -36,6 +38,11 @@ class Figure:
 
 def _media(content_type: str) -> str:
     return _MEDIA_ALIASES.get(content_type.lower(), content_type.lower())
+
+
+def _alt(text: str) -> str:
+    text = text.strip()
+    return "" if _FILE_NAME.fullmatch(text) else text
 
 
 @dataclass
@@ -90,7 +97,8 @@ def _pptx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
                     part = shape.part.related_part(rId)
                 except (KeyError, ValueError):  # a dangling or external relationship
                     continue
-                figures.append(Figure(f"slide {n}", pictures, part.blob, _media(part.content_type)))
+                alt = next(iter(shape._element.xpath("./p:nvPicPr/p:cNvPr/@descr")), "")
+                figures.append(Figure(f"slide {n}", pictures, part.blob, _media(part.content_type), _alt(alt)))
                 continue
             frames = []
             if shape.has_text_frame:
@@ -109,29 +117,26 @@ def _docx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
     d = docx.Document(str(path))
     texts: list[tuple[str, str]] = []
     figures: list[Figure] = []
-    pictures: Counter[str] = Counter()
 
-    def collect(paragraphs, label: str) -> None:
-        for p in paragraphs:
-            for drawing in p._p.xpath(".//w:drawing"):
-                rids = drawing.xpath(".//a:blip/@r:embed")
-                part = d.part.related_parts.get(rids[0]) if rids else None
-                if part is None:  # a native chart or SmartArt, or a linked picture
-                    continue
-                pictures[label] += 1
-                figures.append(Figure(label, pictures[label], part.blob, _media(part.content_type)))
+    def pictures(label: str, drawings) -> None:
+        n = 0
+        for drawing in drawings:
+            rids = drawing.xpath(".//a:blip/@r:embed")
+            part = d.part.related_parts.get(rids[0]) if rids else None
+            if part is None:  # a native chart or SmartArt, or a linked picture
+                continue
+            n += 1
+            alt = next(iter(drawing.xpath(".//wp:docPr/@descr")), "")
+            figures.append(Figure(label, n, part.blob, _media(part.content_type), _alt(alt)))
 
     for i, p in enumerate(d.paragraphs, start=1):
         texts.append((f"paragraph {i}", p.text))
-        collect([p], f"paragraph {i}")
+        pictures(f"paragraph {i}", p._p.xpath(".//w:drawing"))
     for t, table in enumerate(d.tables, start=1):
-        seen = []
         for row in table.rows:
             for cell in row.cells:
                 texts.append((f"table {t}", cell.text))
-                if cell._tc not in seen:  # a merged cell is listed once per column it spans
-                    seen.append(cell._tc)
-                    collect(cell.paragraphs, f"table {t}")
+        pictures(f"table {t}", table._tbl.xpath(".//w:drawing"))  # once per table: a merged cell is listed per column
     return texts, figures
 
 

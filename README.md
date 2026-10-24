@@ -154,8 +154,12 @@ limit; PNG, JPEG, GIF and WebP go through. A picture repeated across slides is
 read once. A note says what happened: `images: transcribed 2 of 7 (4 nothing
 to check, 1 image/x-emf)`. Each distinct picture is one model call; `--no-llm`
 or `--no-images` (`images = false` in config) leaves them all unread, with a
-note saying so. A number printed both in a text box and in a picture on the
-same slide is a claim in each place, and a finding in each if it fails.
+note saying so. A picture's alt text, when it is more than a file name, goes
+to the model with the slide's text, to name what the picture shows. A number
+printed both in a text box and in a picture on the same slide is a claim in
+each place, and a finding in each if it fails, but a line the picture prints
+that the slide also prints as text is not added again. In a Word document,
+pictures in paragraphs and table cells are read; headers and footers are not.
 
 Native chart objects, the kind python-pptx can read values from, are not read
 yet, and pictures inside *evidence* documents are not transcribed.
