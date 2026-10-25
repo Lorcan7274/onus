@@ -48,9 +48,8 @@ def score_case(case: dict, use_model: bool, model=None) -> dict:
     expected = [e for e in case["expect"] if use_model or not e.get("model")]
     found = [e for e in expected if hit(e)]
     clean = case["clean"] + (case.get("clean_with_model", []) if use_model else [])
-    # A false positive is a flag on text that sits inside a clean claim, or on a number listed clean by itself; a
-    # flagged sentence that merely contains a clean number ("1.4x ... over 18 months") is a hit on the fabrication
-    # next to it.
+    # A false positive is a flag on text inside a clean claim, or on a number listed clean by itself; a flagged
+    # sentence that merely contains a clean number ("1.4x ... over 18 months") is a hit on the fabrication next to it.
     def wrong(f):
         number = _norm(f.message.split(":")[0])
         return any(_norm(f.snippet) in _norm(c) or number == _norm(c) for c in clean)
