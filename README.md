@@ -122,51 +122,24 @@ under this one none did, and the one true number still passed. On the deck's
 
 ## Images
 
-Charts in a pitch deck are mostly pictures: exported from Canva or Google
-Slides, pasted from a screenshot. onus sends each picture a reader could
-check (a chart, a table, a KPI tile, a screenshot) to the model, which
-transcribes what is **printed** in it, one statement per line, every number
-next to the words that say what it is:
-
-```
-Fare revenue, 2025: $3.1M
-Member renewal: 88%
-```
-
-The lines then go through the pipeline like any text on the slide: the scan
-finds their numbers, tier 1 checks them against the evidence, and the
-extractor and judge see the rest. A finding names the picture:
+A picture (a chart exported from Canva or Google Slides, a KPI tile, a
+screenshot) goes to the model, which writes out what it prints, one line per
+value, and the lines are checked like the slide's text:
 
 ```
 deck.pptx:slide 3 (image 1): ONS001 $3.1M: no number like it in the evidence
     Fare revenue, 2025: $3.1M
 ```
 
-The model may only write down what is printed. A bar's height read off an
-axis is an estimate, not a claim, so it is never transcribed, and tier 1 never
-sees a number the deck did not state.
-
-Every picture goes to the model, which says when there is nothing to check:
-a photo, a logo, an icon. onus does not judge a picture by its size or its
-looks. PNG, JPEG, GIF and WebP go through; any other type (EMF, SVG, BMP,
-TIFF) and a file over the API's size limit are held back, with a note naming
-the type. A picture repeated across slides is read once. A note says what
-happened: `images: transcribed 2 of 7 (4 nothing to check, 1 image/x-emf)`.
-Each distinct picture is one model call; `--no-llm`
-or `--no-images` (`images = false` in config) leaves them all unread, with a
-note saying so. A picture's alt text, when it is more than a file name, goes
-to the model with the slide's text, to name what the picture shows. A number
-printed both in a text box and in a picture on the same slide is a claim in
-each place, and a finding in each if it fails, but a line the picture prints
-that the slide also prints as text is not added again. In a Word document,
-pictures in paragraphs and table cells are read, inside text boxes and groups
-too; headers, footers and the VML pictures of old Word files are not.
-In the JSON report, a claim's `origin` says whether it came from the
-document's text or from a picture's transcription, where a number is only as
-good as the model's reading of it.
-
-Native chart objects, the kind python-pptx can read values from, are not read
-yet, and pictures inside *evidence* documents are not transcribed.
+Only what is printed is transcribed, never a bar height read off an axis. The
+model says when a picture holds nothing to check; onus does not judge one by
+its size. PNG, JPEG, GIF and WebP are sent, other types and oversized files
+are skipped with a note, and a repeated picture is read once. `--no-images`
+(`images = false` in config) or `--no-llm` leaves pictures unread. In Word
+files, pictures in paragraphs and table cells are read; headers, footers and
+VML are not. The JSON report's `origin` field marks claims that came from a
+transcription. Native chart objects and pictures inside evidence documents
+are not read yet.
 
 ## Rules
 
