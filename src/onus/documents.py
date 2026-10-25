@@ -13,7 +13,7 @@ from pathlib import Path
 _BARE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
 _MEDIA_ALIASES = {"image/jpg": "image/jpeg", "image/x-png": "image/png"}
 # Alt text a generator fills with the file name says nothing about the picture.
-_FILE_NAME = re.compile(r"[\w .-]+\.(?:png|jpe?g|gif|webp|svg|emf|bmp|tiff?)", re.I)
+_FILE_NAME = re.compile(r"[\w .()-]+\.(?:png|jpe?g|gif|webp|svg|emf|bmp|tiff?)", re.I)
 
 
 @dataclass(frozen=True)
@@ -42,8 +42,10 @@ def _media(content_type: str) -> str:
 
 
 def _alt(text: str) -> str:
-    text = text.strip()
-    return "" if _FILE_NAME.fullmatch(text) else text
+    text = " ".join(text.split())
+    if _FILE_NAME.fullmatch(text) or "automatically generated" in text.lower():
+        return ""
+    return text
 
 
 @dataclass
@@ -119,25 +121,25 @@ def _docx(path: Path) -> tuple[list[tuple[str, str]], list[Figure]]:
     texts: list[tuple[str, str]] = []
     figures: list[Figure] = []
 
-    def pictures(label: str, drawings) -> None:
-        n = 0
-        for drawing in drawings:
-            rids = drawing.xpath(".//a:blip/@r:embed")
+    def pictures(label: str, scope) -> None:
+        for n, pic in enumerate(scope.xpath(".//pic:pic"), start=1):
+            rids = pic.xpath("./pic:blipFill/a:blip/@r:embed")
             part = d.part.related_parts.get(rids[0]) if rids else None
-            if part is None:  # a native chart or SmartArt, or a linked picture
+            if part is None:  # a linked picture has no bytes in the file
                 continue
-            n += 1
-            alt = next(iter(drawing.xpath(".//wp:docPr/@descr")), "")
-            figures.append(Figure(label, n, part.blob, _media(part.content_type), _alt(alt)))
+            described = (pic.xpath("./pic:nvPicPr/pic:cNvPr/@descr")
+                         or pic.xpath("ancestor::w:drawing[1]//wp:docPr/@descr"))
+            alt = _alt(next(iter(described), ""))
+            figures.append(Figure(label, n, part.blob, _media(part.content_type), alt))
 
     for i, p in enumerate(d.paragraphs, start=1):
         texts.append((f"paragraph {i}", p.text))
-        pictures(f"paragraph {i}", p._p.xpath(".//w:drawing"))
+        pictures(f"paragraph {i}", p._p)
     for t, table in enumerate(d.tables, start=1):
         for row in table.rows:
             for cell in row.cells:
                 texts.append((f"table {t}", cell.text))
-        pictures(f"table {t}", table._tbl.xpath(".//w:drawing"))  # once per table: a merged cell is listed per column
+        pictures(f"table {t}", table._tbl)  # once per table: a merged cell is listed per column
     return texts, figures
 
 

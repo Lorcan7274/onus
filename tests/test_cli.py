@@ -97,6 +97,21 @@ def test_no_images_leaves_pictures_unread(memo, monkeypatch):
     assert seen["settings"].images is False and seen["settings"].llm is False
 
 
+def test_the_eval_counts_a_flag_on_a_clean_number_as_a_false_positive(tmp_path):
+    sys.path.insert(0, str(EVALS))
+    import run as eval_run
+
+    (tmp_path / "memo.md").write_text("ARR is $3B, up 42%.\n")
+    (tmp_path / "facts.md").write_text("ARR $2.4B, up 42%.\n")
+    case = {"name": "x", "document": str(tmp_path / "memo.md"), "evidence": [str(tmp_path / "facts.md")],
+            "expect": [], "clean": ["$3B"]}
+    row = eval_run.score_case(case, use_model=False)
+    assert row["false_positives"] == [("ONS001", "ARR is $3B, up 42%.")], "the flagged number is listed clean"
+    case["clean"] = ["42%"]
+    assert eval_run.score_case(case, use_model=False)["false_positives"] == [], \
+        "a sentence that merely contains a clean number is a hit on the number beside it"
+
+
 def test_the_labelled_eval_holds_without_the_model():
     # The deterministic layer is the one allowed to refuse an answer, so it is
     # held to perfect recall and no false positives on the labelled runs.

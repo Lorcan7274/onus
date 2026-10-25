@@ -174,6 +174,51 @@ def test_pictures_are_read_without_decoding_them(tmp_path, monkeypatch):
         ("paragraph 1 (image 1)", "image/png", PNG)]
 
 
+def test_word_pictures_in_text_boxes_and_groups_are_read_once_each(tmp_path):
+    import docx
+    from docx.oxml import parse_xml
+    from docx.oxml.ns import nsdecls
+    from pptx.util import Inches
+
+    def wrap(paragraph, uri, holder, alt):
+        """Move the paragraph's pictures into one drawing of another kind, as Word nests them."""
+        drawings = paragraph._p.xpath(".//w:drawing")
+        outer = parse_xml(f'<w:drawing {nsdecls("w", "wp", "a")}><wp:inline><wp:docPr id="9" name="x" descr="{alt}"/>'
+                          f'<a:graphic><a:graphicData uri="{uri}">{holder}</a:graphicData></a:graphic>'
+                          '</wp:inline></w:drawing>')
+        inner = outer.xpath(".//*[local-name()='txbxContent' or local-name()='wgp']")[0]
+        for drawing in drawings:
+            inner.append(drawing if "wgp" in holder else parse_xml(f'<w:p {nsdecls("w")}><w:r/></w:p>'))
+            if "wgp" not in holder:
+                inner[-1][0].append(drawing)
+            else:
+                inner[-1].getparent().replace(inner[-1], drawing.xpath(".//pic:pic")[0])
+        paragraph._p.xpath("./w:r")[0].append(outer)
+
+    w = docx.Document()
+    boxed = w.add_paragraph()
+    boxed.add_run().add_picture(io.BytesIO(PNG), width=Inches(3))
+    boxed._p.xpath(".//wp:docPr")[0].set("descr", "a chart")
+    wrap(boxed, "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
+         '<wps:wsp xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:txbx>'
+         '<w:txbxContent/></wps:txbx></wps:wsp>', "a text box")
+    grouped = w.add_paragraph()
+    grouped.add_run().add_picture(io.BytesIO(PNG + b"\0"), width=Inches(1))
+    grouped.add_run().add_picture(io.BytesIO(PNG + b"\0\0"), width=Inches(1))
+    wrap(grouped, "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+         '<wpg:wgp xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"/>', "two logos")
+    w.save(tmp_path / "n.docx")
+    assert [(f.location, f.data, f.alt) for f in documents.load(tmp_path / "n.docx").figures] == [
+        ("paragraph 1 (image 1)", PNG, "a chart"),
+        ("paragraph 2 (image 1)", PNG + b"\0", "two logos"), ("paragraph 2 (image 2)", PNG + b"\0\0", "two logos")]
+
+
+def test_alt_text_that_says_nothing_is_dropped():
+    assert documents._alt("Screenshot (1).PNG") == ""
+    assert documents._alt("A picture containing text, screenshot\n\nDescription automatically generated") == ""
+    assert documents._alt("  Repair backlog\nby quarter ") == "Repair backlog by quarter"
+
+
 def test_a_linked_picture_is_skipped(tmp_path):
     path = deck(tmp_path, "Network results", PNG)
     unlink(path)

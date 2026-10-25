@@ -148,18 +148,19 @@ sees a number the deck did not state.
 
 Every picture goes to the model, which says when there is nothing to check:
 a photo, a logo, an icon. onus does not judge a picture by its size or its
-looks. The only pictures held back are the ones the API refuses, a vector
-format (EMF, SVG) that would need rendering first and a file over its size
-limit; PNG, JPEG, GIF and WebP go through. A picture repeated across slides is
-read once. A note says what happened: `images: transcribed 2 of 7 (4 nothing
-to check, 1 image/x-emf)`. Each distinct picture is one model call; `--no-llm`
+looks. PNG, JPEG, GIF and WebP go through; any other type (EMF, SVG, BMP,
+TIFF) and a file over the API's size limit are held back, with a note naming
+the type. A picture repeated across slides is read once. A note says what
+happened: `images: transcribed 2 of 7 (4 nothing to check, 1 image/x-emf)`.
+Each distinct picture is one model call; `--no-llm`
 or `--no-images` (`images = false` in config) leaves them all unread, with a
 note saying so. A picture's alt text, when it is more than a file name, goes
 to the model with the slide's text, to name what the picture shows. A number
 printed both in a text box and in a picture on the same slide is a claim in
 each place, and a finding in each if it fails, but a line the picture prints
 that the slide also prints as text is not added again. In a Word document,
-pictures in paragraphs and table cells are read; headers and footers are not.
+pictures in paragraphs and table cells are read, inside text boxes and groups
+too; headers, footers and the VML pictures of old Word files are not.
 In the JSON report, a claim's `origin` says whether it came from the
 document's text or from a picture's transcription, where a number is only as
 good as the model's reading of it.
