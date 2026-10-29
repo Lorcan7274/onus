@@ -131,7 +131,7 @@ def _docx(path: Path) -> tuple[list[Block], list[Figure]]:
     figures: list[Figure] = []
 
     def pictures(label: str, scope) -> None:
-        for n, pic in enumerate(scope.xpath(".//pic:pic"), start=1):
+        for n, pic in enumerate(scope.xpath(".//pic:pic[not(ancestor::*[local-name()='Fallback'])]"), start=1):
             rids = pic.xpath("./pic:blipFill/a:blip/@r:embed")
             part = d.part.related_parts.get(rids[0]) if rids else None
             if part is None:  # a linked picture has no bytes in the file

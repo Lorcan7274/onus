@@ -125,7 +125,8 @@ def merge(doc: Document, extracted: list[ExtractedClaim]) -> tuple[list[Claim], 
             continue
         span = " ".join(block.text.split())[start:start + len(" ".join(e.text.split()))]
         covered.setdefault(block.id, []).append((start, start + len(span)))
-        claims.append(Claim(len(claims), block, span, e.kind, e.subject, "model", numbers.find(span, block.plain)))
+        plain = block.plain and " ".join(block.text.split()).endswith(span)
+        claims.append(Claim(len(claims), block, span, e.kind, e.subject, "model", numbers.find(span, plain)))
 
     missed = []
     for block in doc.blocks:

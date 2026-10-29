@@ -98,7 +98,7 @@ class Passage:
 
     def _context(self, quantity: numbers.Quantity) -> str:
         text, a, b = self.text, quantity.start, quantity.end
-        if self.kind in ("code", "table"):
+        if self.kind in ("code", "table") or self.plain:
             start = text.rfind("\n", 0, a) + 1
             end = text.find("\n", b)
             return f"{self.header} {text[start:end if end >= 0 else len(text)]}"
@@ -299,10 +299,10 @@ def _load_file(evidence: Evidence, path: Path, source: str, exclude_tools, read,
         add(source, "\n\n".join(_strings(json.loads(read()))))
     elif suffix in DOCUMENT_SUFFIXES:
         doc = documents.load(path)
-        add(source, "\n\n".join(b.text for b in doc.blocks if not b.plain))
-        for label in dict.fromkeys(b.label for b in doc.blocks if b.plain):  # one passage per chart
-            evidence.add(f"{source}:{label}", "\n".join(b.text for b in doc.blocks if b.plain and b.label == label),
-                         "prose", strict, plain=True)
+        add(source, "\n\n".join(b.text for b in doc.blocks if b.origin != "chart"))
+        for label in dict.fromkeys(b.label for b in doc.blocks if b.origin == "chart"):  # one passage per chart
+            lines = [b.text for b in doc.blocks if b.origin == "chart" and b.label == label]
+            evidence.add(f"{source}:{label}", "\n".join(lines), "prose", strict, plain=True)
     else:
         add(source, read(), "code" if suffix in CODE_SUFFIXES else "table" if suffix in TABLE_SUFFIXES else "prose")
 

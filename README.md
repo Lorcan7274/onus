@@ -126,10 +126,12 @@ under this one none did, and the one true number still passed. On the deck's
 A native chart object carries its numbers exactly, so it is read with no
 model: one block per category and value, printed as PowerPoint would from
 the chart's number format, plus its title and any custom data label, under
-`slide 2 (chart 1)`. A value left in "General" format is a bare magnitude, so
-tier 1 matches it against evidence of any kind at that magnitude: `2400000`
-is supported by `$2.4M`, `0.88` by `88%`. A deck used as evidence contributes
-each chart as a passage. Charts in Word documents are not read.
+`slide 2 (chart 1)`. A date on the category axis is written as a date, a
+negative value with "minus". A value left in "General" format is a bare
+magnitude, so tier 1 matches it against evidence of any kind at that
+magnitude: `2400000` is supported by `$2.4M`, `0.88` by `88%`. A deck used
+as evidence contributes each chart as a passage. A scatter or bubble series
+contributes its y values only, and charts in Word documents are not read.
 
 ## Images
 
