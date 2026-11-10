@@ -41,12 +41,12 @@ lacked was a source, and that's checkable.
 
 ## Quick Start
 
-'''console
+```console
 uv tool install onus           
 export ANTHROPIC_API_KEY=...    # skip with --no-llm
 onus deck.pptx --evidence facts.md
 onus deck.pptx --evidence facts.md --report claims.json
-'''
+```
 
 ## How it works
 
