@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+- A table under a unit note ("($ in millions)", "in thousands") states its
+  dollar amounts at that scale as well, so `$4,210` in the evidence supports a
+  claim of `$4.2B`. The unscaled reading stays, for a per-share column, and a
+  blank line ends the table. A `$` in a cell of its own, as SEC filings print
+  it, marks the amount in the next cell.
+
+- A bare number that ends a sentence ("The count was 17.") is read as a count.
+  A full stop after it hid it, so neither a document's nor the evidence's was
+  checked. "1.2.3" is still no number.
+
+- A chart value in General format is written with 15 significant digits, as
+  PowerPoint prints it: 96.2 is "96.2", not "96.200000000000003", which held the
+  evidence to 15-decimal precision and so never matched.
+
+- A deck's native charts are read, with no model: one block per category and
+  value, written as PowerPoint prints it from the chart's number format, plus
+  the title and any custom data label, under "slide 3 (chart 1)". A value in
+  "General" format is a bare magnitude, and tier 1 matches it against evidence
+  of any kind at that magnitude (2400000 by $2.4M, 0.88 by 88%). A deck used
+  as evidence contributes each chart as a passage of its own.
+
+- A document's pictures are read. The model transcribes what a chart, table,
+  KPI tile or screenshot prints, one statement per line, and the lines are
+  checked like the slide's text, under the picture's location ("slide 3
+  (image 1)"). Only what is printed is transcribed, never a value read off an
+  axis. Every picture goes to the model, which says when there is nothing to
+  check; only a vector format or an oversized file, which the API refuses, is
+  skipped, with a note. `--no-images` leaves every picture unread.
+
 - A deck's grouped shapes are read, including groups inside groups. A group
   has no text of its own, so a number in a grouped KPI tile was neither checked
   nor usable as evidence.
