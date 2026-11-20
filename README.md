@@ -138,7 +138,10 @@ the chart's number format, plus its title and any custom data label, under
 `slide 2 (chart 1)`. A date on the category axis is written as a date, a
 negative value with "minus". A value left in "General" format is a bare
 magnitude, so tier 1 matches it against evidence of any kind at that
-magnitude: `2400000` is supported by `$2.4M`, `0.88` by `88%`. A deck used
+magnitude: `2400000` is supported by `$2.4M`, `0.88` by `88%`. Where the
+series name, value-axis title or chart title names a currency and a scale
+(`($B)`, `in $ millions`, `USD M`), the value is that money as well: `96.2`
+under "Revenue ($B)" is supported by `$96.2 billion` or `$96,221M`. A deck used
 as evidence contributes each chart as a passage. A scatter or bubble series
 contributes its y values only, and charts in Word documents are not read.
 
