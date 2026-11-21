@@ -216,10 +216,10 @@ results vary by model and run.
   quantities of one kind stated in one evidence sentence; a table row counts
   as one sentence. So a figure computed correctly from two sentences is
   ONS001, and so is a share written as a percent ("92.5% of revenue"), a
-  difference, a sum or a product, even from one sentence. A long table row gives many pairs, and
-  one of their changes can match an unrelated percentage by coincidence;
-  `--extend-select ONS004` lists every number supported only by arithmetic, so
-  each can be checked by hand.
+  difference, a sum or a product, even from one sentence. A long table row
+  gives many pairs, and one of their changes can match an unrelated
+  percentage by coincidence; `--extend-select ONS004` lists every number
+  supported only by arithmetic, so each can be checked by hand.
 - **Presence, not subject.** A number is supported if a named evidence file
   contains it anywhere (from a directory, its sentence must share a word with
   the claim). "NRR 42%" passes against "ARR up 42%". Catching a right number on
