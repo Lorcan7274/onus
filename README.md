@@ -232,8 +232,9 @@ results vary by model and run.
 - **Claims with a number and a qualitative part** ("118% NRR tells us expansion
   is structural") are settled by their number.
 - **A native chart's values are its data, not what a viewer sees.** Every
-  value in its series is checked, labelled on the chart or not, and an axis
-  title or display unit ("Millions") is not read. A chart in a picture
+  value in its series is checked, labelled on the chart or not. A title is read
+  for its unit only when it names a currency and a scale (`($B)`, `USD M`), and
+  an axis display unit ("Millions") is not read. A chart in a picture
   contributes only what is printed in it, as the model reads it: a value it
   cannot make out, or a number it misreads, is a miss or a false finding in
   the model tier.
