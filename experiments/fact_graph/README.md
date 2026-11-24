@@ -22,24 +22,24 @@ its own.
 
 ## Results
 
-On three earnings briefs written by Haiku, Sonnet and Opus from the original (wrong) release, with
-every number labelled by hand against the 10-Q (`agent_briefs/`, `agent_labels.py`):
+Three sets of agent briefs written from the Q2 release, every number labelled by hand against the 10-Q
+(`agent_briefs/setN/`, `labels_setN.py`). Sets 1 and 2 were used to develop the checker; set 3 was
+written and labelled after the code was frozen and scored once.
 
-| Checker | False caught (of 62) | True flagged (of 270) | True verified by key or formula |
+Held-out set 3 (a credit recap and a bull/bear note from the original release, a deck from the corrected
+one; 360 true numbers, 39 false):
+
+| Checker | False caught (of 39) | True flagged (of 360) | True verified by key or formula |
 |---|---|---|---|
-| onus `main` | 27 | 44 | n/a |
-| onus with the table-row fixes | 42 | 20 | n/a |
-| graph, word overlap only | 45 | 54 | 22 |
-| graph with tables and a claim's own arithmetic | **50** | 21 | **80** |
-| graph with embeddings | 52 | 112 | 44 |
+| onus `main` | 12 | 59 | n/a |
+| onus with the table-row fixes | 24 | 63 | n/a |
+| graph, word overlap only | 25 | 103 | 46 |
+| graph before structure parsing (`8d2d4bd`) | 26 | 76 | 78 |
+| **graph with structure parsing and written arithmetic** | **29** | **61** | **95** |
 
-The last round of fixes was tuned on these same briefs, so the graph's row is optimistic. Labelled
-claim sets: `cases.py` (67, tuned on), `cases2.py` (40, agent shorthand), `cases3.py` (40, held out
-until the embedding test): 65/67, 39/40 and 33/40.
-
-What it still gets wrong: adjusted figures computed from wrong inputs that happen to be right, shares
-of a total whose inputs sit in another paragraph, a few bad keys ("share of revenue" to share-based
-compensation), and non-GAAP figures the 10-Q does not hold.
+What it still gets wrong: derived figures whose inputs sit in another sentence with no written formula
+(ex-charges opex, free cash flow, shares of the decline), mix columns read against the wrong period, and
+keys that land on the wrong fact ("$0.38/share" to share-based compensation, "$1.0M" to restricted cash).
 
 ## Running
 
@@ -54,7 +54,7 @@ python3 score.py cases3
 ```
 
 ```bash
-python3 score_agents.py
+python3 score_agents.py set3
 ```
 
 `score_agents.py` also scores another onus revision if `ONUS_BASELINE` points at its checkout, and the
