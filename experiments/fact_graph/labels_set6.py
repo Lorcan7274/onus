@@ -1,0 +1,25 @@
+"""Hand labels for set 6, made with the code frozen at fba6fd5 and before any checker ran on it. T agrees with the
+10-Q; F is wrong; U is not in the 10-Q; R is off only by rounding of rounded inputs; X is not a claim."""
+LABELS = {
+    "credit": {5: "TT", 11: "TTT", 12: "T", 13: "T", 14: "TTT", 15: "TT", 16: "FTF", 17: "FTF", 18: "FT", 19: "TTT",
+               20: "FTF", 21: "FT", 22: "FUF", 23: "FU", 25: "TTTTTTTT", 27: "TF", 31: "T", 32: "FTT", 33: "FT",
+               38: "T", 39: "TRT", 40: "TTTTTTTT", 41: "TTT", 42: "TT", 43: "FTTT", 48: "UUU", 49: "TTTTTTTTT",
+               64: "XUU", 65: "XT", 66: "X", 67: "X", 68: "X"},
+    "kpis": {3: "X", 5: "X", 11: "X", 15: "TTT", 16: "T", 17: "T", 18: "TTT", 19: "TTRT", 20: "TT", 21: "TTRT",
+             22: "TTT", 23: "TT", 24: "TTT", 25: "TT", 26: "TTT", 27: "UU", 28: "UU", 31: "TTTT", 38: "X",
+             42: "TTTTT", 43: "TTTTT", 44: "TTTTT", 45: "TTTTT", 46: "TTTTT", 50: "TRT", 51: "TTT", 52: "TTT",
+             53: "TRR", 54: "TT", 55: "TTT", 59: "TT", 60: "RRT", 61: "TTT", 62: "RT", 63: "TT", 65: "TT", 69: "X",
+             75: "T", 76: "T", 77: "T", 78: "T", 79: "T", 80: "TT", 88: "TTTT", 89: "TTT", 90: "TTT", 91: "TTT",
+             92: "TTTT", 93: "TTT", 94: "TTRT", 97: "T", 98: "T", 99: "T", 103: "X", 107: "TT", 108: "TT",
+             109: "TT", 110: "TTTT", 111: "TT", 112: "RRR", 116: "T", 117: "TT", 118: "R", 119: "T", 123: "X",
+             127: "UU", 128: "U", 129: "UUU", 133: "T", 134: "T", 135: "TT", 136: "TT", 137: "TT", 143: "X",
+             147: "RTTXTX", 148: "TTT", 149: "TTT", 150: "TTTX", 151: "TTTTX", 152: "TTTT", 153: "TTTT", 154: "TT",
+             155: "UU", 156: "TT", 157: "TX", 158: "TTX", 159: "TT", 160: "RTT", 161: "TRTX", 162: "TTT",
+             163: "TTT", 164: "UTT", 165: "TTX", 166: "TTTT", 167: "TTTTX"},
+    "qaprep": {3: "X", 7: "TTTTTTTTTFFFFFFFTTTTTTUUTT", 13: "TTTT", 14: "TT", 15: "TTT", 16: "TTT", 17: "TTT",
+               18: "TTT", 19: "TTR", 20: "TT", 21: "FTF", 22: "FTF", 23: "FTF", 24: "FT", 25: "TTT", 26: "FTF",
+               27: "FTF", 28: "FUFF", 29: "FU", 30: "TTR", 31: "TTR", 32: "TTR", 33: "TTR", 37: "X",
+               38: "TTTTTTTTT", 41: "X", 42: "UUUUTUU", 45: "X", 46: "TTTTTT", 49: "X", 50: "TTTTTTTT", 53: "XT",
+               54: "TTTTT", 57: "X", 58: "FFFTTTTTFTTTFFTT", 61: "X", 62: "FFFTFTFTTTTF", 65: "X",
+               66: "TRTTTTTT", 67: "R", 69: "XTT", 70: "TTRFTR", 73: "X", 74: "TTUTT"},
+}

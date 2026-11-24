@@ -42,6 +42,8 @@ against onus alone.
 
 | 5 (held out, certainty rule frozen first) | onus | 25 / 37 | 36 / 290 |
 | 5 (held out, certainty rule frozen first) | onus + graph layer | 27 / 37 | 31 / 290 |
+| 6 (held out, same frozen code) | onus | 33 / 50 | 130 / 375 |
+| 6 (held out, same frozen code) | onus + graph layer | 38 / 50 | 99 / 375 |
 
 The layering rule was written after set 3 was scored, so set 3 is not a clean test of it; set 4 is. On
 set 4 the layer (then adding every "wrong") caught 4 more errors but added 12 false flags of its own, all
@@ -49,7 +51,8 @@ from keys that landed on the wrong fact or period, cancelling the 12 it cleared.
 flag only when its key is certain: the fact explains every word of the claim's metric, nothing marks the
 number as adjusted or as a change, and no other period, segment or date of the same concept holds the
 claimed value. Rows 1-4 above use the earlier rule; on set 5, scored once after that change, the layer
-catches 2 more errors, loses none, clears 6 false flags and adds 1. Most remaining false flags are onus's own: derived figures whose inputs sit in another
+catches 2 more errors, loses none, clears 6 false flags and adds 1; on set 6 it catches 5 more, loses
+none, clears 32 and adds 1. Most remaining false flags are onus's own: derived figures whose inputs sit in another
 sentence with no written formula, which neither layer can confirm yet.
 
 ## Running
