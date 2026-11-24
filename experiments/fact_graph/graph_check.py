@@ -50,6 +50,7 @@ IGNORED = GENERIC | _stems("second first third fourth half fiscal primarily decr
                            "october november december channel loss income was were mix derived")
 FUTURE = re.compile(r"\bexpect|\bestimat|\bwill\b|\bguidance\b|\boutlook\b|\bthird quarter of 2025\b", re.I)
 REVENUE = "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
+REFERENCE = re.compile(r"\b(?:exhibit|item|note|section|rule|form)\s*$", re.I)
 SIX_MONTHS = re.compile(r"\bsix[- ]months?\b|\bfirst[- ]half\b|\b[hH]1\b|\b1H\b|\byear[- ]to[- ]date\b|\bYTD\b",
                         re.I)
 # How a claim's words find their fact: "lexical" word overlap, "fallback" to embeddings when overlap finds
@@ -177,6 +178,14 @@ def certain(q, f, window: str, mwindow: str, graph: Graph) -> bool:
     return not any(g.concept == f.concept and g is not f and close(q, _scaled(g)) for g in graph.facts)
 
 
+def stated_in_table(q, sentence: str, presence: ev.Evidence) -> bool:
+    """Whether a table cell in the evidence states `q` for a row and period that fit the claim: then the filing
+    itself says what the claim says, however the facts compute it (34,912 / 74,958 is 46.58%; the 10-Q prints
+    (46.5)%), and a second layer must not overrule it."""
+    return any(q.matches(e) and p.cell(e.end - 1) is not None and p.can_support(e, sentence)
+               for p in presence.passages for e in p.quantities)
+
+
 def close(q, value: float) -> bool:
     return abs(abs(value) - q.value) <= q.tolerance + 1e-9
 
@@ -196,7 +205,8 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                 months = 6
             elif re.search(r"\bquarter\b|\bQ[1-4]\b|\bthree months\b", sentence, re.I):
                 months = 3
-            qs = [q for q in numbers.find(sentence) if not q.temporal]
+            qs = [q for q in numbers.find(sentence) if not q.temporal
+                  and not REFERENCE.search(sentence[:q.start])]
             if not qs:
                 continue
             future = bool(FUTURE.search(sentence))
@@ -242,6 +252,8 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                 else:
                     cands = keys(mwindow, graph, q, months, when, segs,
                                  lambda f, q=q, ps=per_share: unit_ok(q, f, ps) or q.kind == "percent")
+                    if SHARE.search(window):  # a margin is money over revenue, never another percentage fact
+                        cands = [f for f in cands if f.unit != "xbrli:pure"]
                     stated = [f for f in cands if unit_ok(q, f, per_share)]
                     named = bool(content(mwindow))
                     if not cands and not named and subject is not None and not part:
@@ -251,7 +263,8 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                             cands = [subject]
                     if any(close(q, f.value * (100 if f.unit == "xbrli:pure" else 1)) for f in stated):
                         f = next(f for f in stated if close(q, f.value * (100 if f.unit == "xbrli:pure" else 1)))
-                        how = f"{f.concept.split(':')[-1]} {f.months}m to {f.end} = {f.value:,.0f}"
+                        digits = 0 if abs(f.value) >= 100 else 2
+                        how = f"{f.concept.split(':')[-1]} {f.months}m to {f.end} = {f.value:,.{digits}f}"
                         # a lower-ranked tie only fails to contradict the claim
                         v = (Verdict(q.raw, "matched", how) if f is stated[0]
                              else Verdict(q.raw, "weak", f"ambiguous key: {how}, ranked below {_n(stated[0])}"))
@@ -263,7 +276,9 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                             if stated:
                                 f = stated[0]
                                 what = f"{f.concept.split(':')[-1]} {f.months}m to {f.end} is {f.value:,.2f}"
-                                v = Verdict(q.raw, "wrong", what, certain(q, f, window, mwindow, graph))
+                                sure = (certain(q, f, window, mwindow, graph)
+                                        and not stated_in_table(q, sentence, presence))
+                                v = Verdict(q.raw, "wrong", what, sure)
                             elif (q.kind == "percent" and subj is not None
                                   and (SHARE.search(window) or CHANGE.search(window))):
                                 hint = derive_hint(q, window, subj, graph, months, when, end, segs)
@@ -272,7 +287,8 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                                                    when.replace(year=when.year + shift), end, segs)]
                                 sure = (not ADJUSTED.search(window)
                                         and content(mwindow) <= _stems(subj.words)
-                                        and not any(close(q, w) for w in other))
+                                        and not any(close(q, w) for w in other)
+                                        and not stated_in_table(q, sentence, presence))
                                 v = Verdict(q.raw, "wrong", hint, sure)
                             else:
                                 v = Verdict(q.raw, "weak" if _present(q, sentence, presence) else "unsupported",
@@ -528,7 +544,7 @@ def check_document(text: str, graph: Graph, presence: ev.Evidence, end: date) ->
             if not stripped:
                 per_line[n] = ([], [])
                 continue
-            protected = expand(line).replace("U.S. ", "U.S.​")
+            protected = expand(line).replace("U.S. ", "U.S.\u200b")
             verdicts = [v for _, v in check(line, graph, presence, end) if v.status != "skipped"]
             qs = [q for q in numbers.find(protected) if not q.temporal]
             bounds, pos = [], 0

@@ -39,7 +39,6 @@ against onus alone.
 | 3 (held out) | onus + graph layer | 30 / 39 | 58 / 360 |
 | 4 (held out, rule frozen first) | onus | 32 / 47 | 63 / 380 |
 | 4 (held out, rule frozen first) | onus + graph layer | 36 / 47 | 63 / 380 |
-
 | 5 (held out, certainty rule frozen first) | onus | 25 / 37 | 36 / 290 |
 | 5 (held out, certainty rule frozen first) | onus + graph layer | 27 / 37 | 31 / 290 |
 | 6 (held out, same frozen code) | onus | 33 / 50 | 130 / 375 |
