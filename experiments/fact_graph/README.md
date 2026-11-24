@@ -43,6 +43,8 @@ against onus alone.
 | 5 (held out, certainty rule frozen first) | onus + graph layer | 27 / 37 | 31 / 290 |
 | 6 (held out, same frozen code) | onus | 33 / 50 | 130 / 375 |
 | 6 (held out, same frozen code) | onus + graph layer | 38 / 50 | 99 / 375 |
+| 7 (held out, after the margin fixes) | onus | 29 / 39 | 32 / 322 |
+| 7 (held out, after the margin fixes) | onus + graph layer | 32 / 39 | 29 / 322 |
 
 The layering rule was written after set 3 was scored, so set 3 is not a clean test of it; set 4 is. On
 set 4 the layer (then adding every "wrong") caught 4 more errors but added 12 false flags of its own, all
@@ -51,7 +53,10 @@ flag only when its key is certain: the fact explains every word of the claim's m
 number as adjusted or as a change, and no other period, segment or date of the same concept holds the
 claimed value. Rows 1-4 above use the earlier rule; on set 5, scored once after that change, the layer
 catches 2 more errors, loses none, clears 6 false flags and adds 1; on set 6 it catches 5 more, loses
-none, clears 32 and adds 1. Most remaining false flags are onus's own: derived figures whose inputs sit in another
+none, clears 32 and adds 1. An audit then found a true margin (-46.5%, the 10-Q's own figure) flagged
+with certainty through the lease discount rate, so a margin's subject must now be money and a fitting
+filing table cell that states the claimed value blocks certainty; on set 7, scored once after that, the
+layer catches 3 more errors, loses none, clears 6 false flags and adds 3. Most remaining false flags are onus's own: derived figures whose inputs sit in another
 sentence with no written formula, which neither layer can confirm yet.
 
 ## Running
