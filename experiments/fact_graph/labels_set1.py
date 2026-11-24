@@ -1,4 +1,4 @@
-"""Hand labels for every number in the three agent briefs, per line in row order.
+"""Hand labels for every number in the three agent briefs of set 1, per line in row order.
 
 T agrees with the 10-Q; F is wrong; U is not in the 10-Q; R is off only by rounding of rounded inputs;
 X is a list marker."""

@@ -9,15 +9,16 @@ from datetime import date
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-BRIEFS = HERE / "agent_briefs"
+SET = sys.argv[1] if len(sys.argv) > 1 else "set1"
+BRIEFS = HERE / "agent_briefs" / SET
 sys.path.insert(0, str(HERE))
 import graph_check as g  # noqa: E402
 import xbrl  # noqa: E402
-from agent_labels import LABELS  # noqa: E402
 from agent_numbers import rows as numbers_in  # noqa: E402
 
 from onus import evidence as ev  # noqa: E402
 
+LABELS = __import__(f"labels_{SET}").LABELS
 rows = [r for p in sorted(BRIEFS.glob("brief_*.md")) for r in numbers_in(p)]
 for r in rows:
     r["label"] = None
@@ -105,4 +106,4 @@ for name, res in tools.items():
           f"{verified:>5}/{n['T']:<5} {c['U','flag']:>4}/{n['U']:<5} {c['R','flag']:>4}/{n['R']:<5}")
 json.dump([{**{k: v for k, v in r.items() if k != "why"}, "why": r.get("why", {}),
             **{name: res[id(r)] for name, res in tools.items()}} for r in rows],
-          open(HERE / "agent_scored.json", "w"), indent=1)
+          open(HERE / f"scored_{SET}.json", "w"), indent=1)

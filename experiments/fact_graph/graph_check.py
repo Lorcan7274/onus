@@ -47,7 +47,7 @@ IGNORED = GENERIC | _stems("second first third fourth half fiscal primarily decr
                            "grew fell declined rose wider widened narrower narrowed year-over-year u.s. international "
                            "retail foodservice europe emea asia apac canada china america latin north margin "
                            "first-half h1 1h ytd january february march april may june july august september "
-                           "october november december channel loss income was were")
+                           "october november december channel loss income was were mix derived")
 FUTURE = re.compile(r"\bexpect|\bestimat|\bwill\b|\bguidance\b|\boutlook\b|\bthird quarter of 2025\b", re.I)
 REVENUE = "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
 SIX_MONTHS = re.compile(r"\bsix[- ]months?\b|\bfirst[- ]half\b|\b[hH]1\b|\b1H\b|\byear[- ]to[- ]date\b|\bYTD\b",
@@ -189,12 +189,18 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                 if before.rstrip().endswith((",", ":")) and content(after):
                     before = ""  # "$4.5M SG&A, $2.5M legal fees": each label follows its own number
                 window = f"{before} {after}"
+                if q.kind == "percent" and re.match(r"\s*of (?:total )?(?:net )?(?:revenues?|sales)\b", after, re.I):
+                    window += " % of net revenues"  # "43.9% of revenue": the sign is part of the number
                 # "of net revenues" names the denominator, not the subject
-                mwindow = re.sub(r"\bof (?:total )?(?:net )?revenues?\b", " ", window, flags=re.I)
+                mwindow = re.sub(r"%?\s*\bof (?:total )?(?:net )?(?:revenues?|sales)\b", " ", window, flags=re.I)
+                clause = CLAUSE.split(sentence[:q.start])[-1] + after
+                # "U.S. retail fell to 43.9%; international rose to 41.3%": each clause names its own segment
+                segs = segment_of(clause) or segment_of(sentence)
+                if segs and SHARE.search(window) and not content(mwindow):
+                    mwindow += " net revenues"  # a segment's share of revenue is its revenue over the total
                 per_share = bool(PER_SHARE.search(window))
                 prior = bool(PRIOR.search(sentence[:q.start]))
                 when = end.replace(year=end.year - 1) if prior else end
-                segs = segment_of(sentence)
                 v = Verdict(q.raw, "skipped")
                 elsewhere = GEOGRAPHY.search(mwindow) if re.search(r"\brevenue|\bsales\b", mwindow, re.I) else None
                 if elsewhere and not future:
@@ -328,43 +334,104 @@ def _cells(line: str) -> list[str]:
 PERIOD_WORDS = re.compile(r"\bQ[1-4]\b|\b20\d\d\b|'?\b\d\d\b|year-ago|\(|\)", re.I)
 
 
+MONEY_CELL = re.compile(r"^[-+−]?\(?[-+−]?\$?\s?\(?[-−]?\d[\d,]*(?:\.\d+)?\)?$")
+# A unit stated once for a whole document: "in $M unless noted", "($ in millions)".
+DOC_MILLIONS = re.compile(r"\bin \$\s?M\b|\$M unless|\$ in millions|\bin \$?\s?millions\b|\(\$\s?M\)", re.I)
+MARGIN_PART = re.compile(r"^(?P<a>.*?\S)\s*\((?P<b>[-+−]?\d[\d.,]*\s*(?:%|bp\b|pts?\b))\)\s*$")
+OPERATOR = re.compile(r"^[\s()]*(?:(?P<op>[+\-−x×*/])|(?P<word>plus|minus|less|times|over|divided by))[\s()]*$",
+                      re.I)
+
+
 def _money(cell: str, millions: bool, label: str) -> str:
-    """A bare cell under a "($M)" header, written as the money it is; a per-share row is dollars per share."""
-    if BARE.match(cell) and PER_SHARE.search(expand(label)):
-        return f"${cell.strip('()').lstrip('-')} per share"
-    if millions and BARE.match(cell):
-        return f"${cell.strip('()').lstrip('-')} million"
-    return cell
+    """A cell with no scale under a table or document that states "$M", written as the money it is; a
+    per-share row is dollars per share."""
+    text = cell.strip()
+    if not MONEY_CELL.match(text):
+        return cell
+    num = re.sub(r"[^\d.,]", "", text)
+    if PER_SHARE.search(expand(label)):
+        return f"${num} per share"
+    return f"${num} million" if millions else cell
 
 
-def table_sentences(header: list[str], row: list[str]) -> list[str]:
-    """Each value cell of a row as a sentence that names its metric and its period."""
-    millions = bool(TABLE_MILLIONS.search(" ".join(header)))
-    label, out = row[0].replace("**", ""), []
-    if segment_of(expand(label)) and not content(expand(label)):
-        label = f"{label} net revenues"  # a row that names only a segment is that segment's revenue
-    for h, cell in zip(header[1:], row[1:], strict=False):
-        value = _money(cell, millions, label)
-        words = " ".join(PERIOD_WORDS.sub(" ", h).split())
-        if words and not content(f"{label} {words}") - content(label):
-            words = ""
-        if COL_SHARE.search(h):
-            qs = re.findall(r"\d[\d.,]*%", cell)
-            prior = f", compared to {qs[1]} of total net revenues in the year-ago period." if len(qs) > 1 else "."
-            out.append(f"{label} net revenues were {qs[0]} of total net revenues{prior}")
-        elif COL_CHANGE.search(h):
-            out.append(f"{label} changed by {value} year-over-year.")
-        elif COL_PRIOR.search(h) and not COL_CURRENT.search(h):
-            out.append(f"Compared to the year-ago period, {label} was {value}.")
-        elif COL_CURRENT.search(h):
-            out.append(f"{label} was {value}.")
-        else:
-            out.append(f"{label} {h} was {value}.")
+def split_row(label: str, cells: list[str]) -> list[tuple[str, list[str], int]]:
+    """A row as one or more metrics: "U.S. retail / U.S. foodservice | $32.9 / $11.1" is two rows, and
+    "Gross profit (margin) | $8.6 (11.5%)" is gross profit and its margin. Each part keeps its place."""
+    names = [n.strip() for n in label.split(" / ")]
+    filled = [c for c in cells if c.strip()]
+    if len(names) > 1 and filled and all(len(c.split(" / ")) == len(names) for c in filled):
+        period = " ".join(SIX_MONTHS.findall(label))
+        parts = [[c.split(" / ")[i].strip() if c.strip() else "" for c in cells] for i in range(len(names))]
+        return [(n if not period or SIX_MONTHS.search(n) else f"{period} {n}", parts[i], i)
+                for i, n in enumerate(names)]
+    paren = re.match(r"^(?P<head>.*?\S)\s*\((?P<sub>[^)]*)\)\s*$", label)
+    if paren and any(MARGIN_PART.match(c.strip()) for c in cells):
+        matches = [MARGIN_PART.match(c.strip()) for c in cells]
+        return [(paren["head"], [m["a"] if m else c for m, c in zip(matches, cells, strict=True)], 0),
+                (f"{paren['head']} {paren['sub']}", [m["b"] if m else "" for m in matches], 1)]
+    return [(label, cells, 0)]
+
+
+def table_sentences(header: list[str], row: list[str], millions: bool = False) -> list[tuple[str, tuple]]:
+    """Each value cell of a row as a sentence that names its metric and its period, with the cell and part
+    it came from, so verdicts can be put back in the row's order."""
+    millions = millions or bool(TABLE_MILLIONS.search(" ".join(header)))
+    out = []
+    for name, cells, part in split_row(row[0].replace("**", ""), row[1:]):
+        label = name
+        if segment_of(expand(label)) and not content(expand(label)):
+            label = f"{label} net revenues"  # a row that names only a segment is that segment's revenue
+        for col, (h, cell) in enumerate(zip(header[1:], cells, strict=False)):
+            if not cell.strip():
+                continue
+            value = _money(cell, millions, label)
+            if COL_SHARE.search(h):
+                qs = re.findall(r"\d[\d.,]*%", cell)
+                if not qs:
+                    continue
+                prior = f", compared to {qs[1]} of total net revenues in the year-ago period." if len(qs) > 1 else "."
+                sentence = f"{label} net revenues were {qs[0]} of total net revenues{prior}"
+            elif COL_CHANGE.search(h):
+                sentence = f"{label} changed by {value} year-over-year."
+            elif COL_PRIOR.search(h) and not COL_CURRENT.search(h):
+                sentence = f"Compared to the year-ago period, {label} was {value}."
+            elif COL_CURRENT.search(h):
+                sentence = f"{label} was {value}."
+            else:
+                sentence = f"{label} {h} was {value}."
+            out.append((sentence, (col, part)))
     return out
 
 
-def _arith(target, operands):
-    """Values a claim's own other numbers produce: sums, differences, ratios, changes, (a + b) / c."""
+def written_formulas(text: str, items: list) -> list[tuple[float, str, tuple]]:
+    """Arithmetic an agent wrote out between numbers in `text` ("($8.6 + $1.7) / $75.0", "$59.4M operating
+    burn plus $6.4M capex", "$26.0M x 4"), evaluated left to right, with the verdicts of its operands."""
+    out = []
+    for start in range(len(items)):
+        value, how, used = items[start][0].value, items[start][0].raw, [items[start][1]]
+        for k in range(start + 1, len(items)):
+            between = text[items[k - 1][0].end:items[k][0].start]
+            between = re.sub(r"\b(?:operating|burn|capex|charges?|costs?|items?|the|of)\b", " ", between, flags=re.I)
+            m = OPERATOR.match(between)
+            if m is None:
+                break
+            op = (m["op"] or m["word"]).lower()
+            b = items[k][0].value
+            if op in ("+", "plus"):
+                value += b
+            elif op in ("-", "−", "minus", "less"):
+                value -= b
+            elif op in ("x", "×", "*", "times"):
+                value *= b
+            elif b:
+                value /= b
+            how, used = f"{how} {op} {items[k][0].raw}", [*used, items[k][1]]
+            out.append((value, how, tuple(used)))
+    return out
+
+
+def _pairs(target, operands):
+    """Values two of a sentence's other numbers produce: a sum, a difference, a ratio or a change."""
     money = [o for o in operands if o[0].group == "money"]
     for i, (a, va) in enumerate(money):
         for j, (b, vb) in enumerate(money):
@@ -379,59 +446,78 @@ def _arith(target, operands):
                 yield (a.value / b.value - 1) * 100, f"change from {b.raw} to {a.raw}", (va, vb)
             elif target.kind == "multiple" and b.value:
                 yield a.value / b.value, f"{a.raw} / {b.raw}", (va, vb)
-            for k, (c, vc) in enumerate(money):
-                if k in (i, j) or j < i:
-                    continue
-                if target.kind == "percent" and c.value:
-                    yield (a.value + b.value) / c.value * 100, f"({a.raw} + {b.raw}) / {c.raw}", (va, vb, vc)
-                if target.group == "money":
-                    yield a.value - b.value - c.value, f"{a.raw} - {b.raw} - {c.raw}", (va, vb, vc)
 
 
-def own_arithmetic(items):
-    """A number no fact keys, checked against its paragraph's other numbers: derived when its inputs are
-    verified, wrong when one is wrong, weak when they are only present."""
+def _formula_matches(q, value: float) -> bool:
+    """A written formula's result states `q`: as itself, or as a percent when the formula is a ratio."""
+    return close(q, value) or (q.kind == "percent" and close(q, value * 100))
+
+
+def _judge(q, v, how, used):
+    if any(x.status == "wrong" and "built on" not in x.path and " = " not in x.path[:12] for x in used):
+        return Verdict(q.raw, "wrong", f"{q.raw} = {how}, built on a wrong number")
+    if all(x.status in ("matched", "derived") for x in used):
+        return Verdict(q.raw, "derived", f"{q.raw} = {how}, from verified numbers")
+    return Verdict(q.raw, "weak", f"{q.raw} = {how}, from numbers only present")
+
+
+def own_arithmetic(items, groups, formulas):
+    """A number no fact keys, checked against arithmetic the document wrote out, then against pairs of the
+    other numbers in its own sentence or table row: derived when the inputs are verified, wrong when one is
+    wrong, weak when they are only present."""
     out = []
     for n, (q, v) in enumerate(items):
-        if v.status not in ("weak", "unsupported"):
+        if v.status not in ("weak", "unsupported") or q.temporal:
             out.append((q, v))
             continue
-        operands = [(o, ov) for m, (o, ov) in enumerate(items) if m != n and not o.temporal]
-        hit = next(((how, vs) for value, how, vs in _arith(q, operands) if close(q, value)), None)
+        hit = next(((how, used) for value, how, used in formulas
+                    if _formula_matches(q, value) and v not in used), None)
         if hit is None:
-            out.append((q, v))
-            continue
-        how, vs = hit
-        if any(x.status == "wrong" and "built on" not in x.path and " = " not in x.path[:12] for x in vs):
-            v = Verdict(q.raw, "wrong", f"{q.raw} = {how}, built on a wrong number")
-        elif all(x.status in ("matched", "derived") for x in vs):
-            v = Verdict(q.raw, "derived", f"{q.raw} = {how}, from verified numbers")
-        else:
-            v = Verdict(q.raw, "weak", f"{q.raw} = {how}, from numbers only present")
-        out.append((q, v))
+            operands = [(o, ov) for m, (o, ov) in enumerate(items) if m != n and groups[m] == groups[n]
+                        and not o.temporal]
+            hit = next(((how, used) for value, how, used in _pairs(q, operands) if close(q, value)), None)
+        out.append((q, _judge(q, v, *hit) if hit else v))
     return out
 
 
 def check_document(text: str, graph: Graph, presence: ev.Evidence, end: date) -> dict[int, list]:
-    """Verdicts per line, in the order its numbers appear: table cells by row and column, prose by sentence,
-    then a claim's own arithmetic over each line."""
-    out, header = {}, None
-    for n, line in enumerate(text.split("\n"), start=1):
+    """Verdicts per line, in the order its numbers appear: table cells by row and column (a row or cell that
+    combines two metrics split apart, a unit stated for the document applied), prose by sentence, then
+    arithmetic the document wrote out and pairs within a sentence or row."""
+    lines = text.split("\n")
+    per_line: dict[int, tuple[list, list]] = {}
+    header, millions = None, False
+    for n, line in enumerate(lines, start=1):
         stripped = line.strip()
         if not stripped.startswith("|"):
             header = None
-            sentences = [line]
-        elif header is None:
+            millions = millions or bool(DOC_MILLIONS.search(line))
+            if not stripped:
+                per_line[n] = ([], [])
+                continue
+            protected = expand(line).replace("U.S. ", "U.S.​")
+            verdicts = [v for _, v in check(line, graph, presence, end) if v.status != "skipped"]
+            qs = [q for q in numbers.find(protected) if not q.temporal]
+            bounds, pos = [], 0
+            for sentence in numbers.sentences(protected):
+                pos = protected.find(sentence, pos)
+                bounds.append(pos + len(sentence))
+            groups = [next((i for i, b in enumerate(bounds) if q.start < b), len(bounds)) for q in qs]
+            per_line[n] = (list(zip(qs, verdicts, strict=False)), groups, protected)
+            continue
+        if header is None:
             header = _cells(stripped)
-            sentences = []
-        elif set(stripped) <= set("|-: "):
-            sentences = []
-        else:
-            sentences = table_sentences(header, _cells(stripped))
-        items = []
-        for sentence in sentences:
+            per_line[n] = ([], [])
+            continue
+        if set(stripped) <= set("|-: "):
+            per_line[n] = ([], [])
+            continue
+        keyed = []
+        for sentence, (col, part) in table_sentences(header, _cells(stripped), millions):
             verdicts = [v for _, v in check(sentence, graph, presence, end) if v.status != "skipped"]
             qs = [q for q in numbers.find(expand(sentence)) if not q.temporal]
-            items += list(zip(qs, verdicts, strict=False))
-        out[n] = own_arithmetic(items)
-    return out
+            keyed += [((col, part, j), q, v) for j, (q, v) in enumerate(zip(qs, verdicts, strict=False))]
+        keyed.sort(key=lambda x: x[0])
+        per_line[n] = ([(q, v) for _, q, v in keyed], [0] * len(keyed))
+    formulas = [f for entry in per_line.values() if len(entry) == 3 for f in written_formulas(entry[2], entry[0])]
+    return {n: own_arithmetic(entry[0], entry[1], formulas) for n, entry in per_line.items()}
