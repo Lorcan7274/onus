@@ -21,7 +21,35 @@ import xbrl  # noqa: E402
 
 from onus import evidence as ev  # noqa: E402
 from onus import numbers  # noqa: E402
-from onus.evidence import GENERIC, _stems  # noqa: E402
+
+# The graph's own word matching, copied from onus as it stood when the graph was tuned, so that a change to
+# onus's table matching cannot silently change which fact a claim keys to.
+STOP = set("the a an and or of to in on for with by at is are was were be been this that these those it its as "
+           "from our we you they their has have had not but".split())
+SUFFIXES = ("ings", "ing", "ions", "ion", "es", "ed", "s", "e")
+
+
+def _words(text: str) -> list[str]:
+    return [w for w in re.findall(r"[a-z0-9$%.]+", text.lower()) if w not in STOP and len(w) > 1]
+
+
+def _named(text: str) -> set[str]:
+    text = re.sub(r"([a-z])([A-Z])", r"\1 \2", text)
+    return {w for w in (t.strip(".") for t in _words(text)) if any(c.isalpha() for c in w) and len(w) > 2}
+
+
+def _stem(word: str) -> str:
+    return next((word[:-len(s)] for s in SUFFIXES if word.endswith(s) and len(word) - len(s) >= 4), word)
+
+
+def _stems(text: str) -> set[str]:
+    return {_stem(w) for w in _named(text)}
+
+
+GENERIC = {_stem(w) for w in (
+    "total", "net", "period", "other", "end", "ended", "beginning", "three", "six", "nine", "twelve", "month", "year",
+    "ago", "prior", "current", "compared", "million", "thousand", "billion", "percent", "quarter", "per", "including",
+    "related", "data", "except")}
 
 # A finance profile's segment vocabulary, as this filer's members name them.
 SEGMENTS = {"country:US": "u.s.", "us-gaap:NonUsMember": "international",
