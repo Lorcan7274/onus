@@ -1,7 +1,7 @@
 """Inline XBRL facts from a filing, each with its period, segment, scale, sign and the row label it sits beside."""
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from html import unescape
 
 
@@ -36,6 +36,30 @@ def _date(s: str) -> date:
     return date.fromisoformat(s.strip())
 
 
+NUMBER_WORDS = {"no": 0, "none": 0, "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+                "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12}
+
+
+def _facts(s: str):
+    """Each fact tag as (attributes, start, inner HTML), a tag nested inside another included."""
+    stack = []
+    for m in re.finditer(r"<ix:nonFraction\b([^>]*?)(/?)>|</ix:nonFraction>", s):
+        if m.group(0).startswith("</"):
+            attrs, start, inner = stack.pop()
+            yield attrs, start, s[inner:m.start()]
+        elif m.group(2):
+            yield m.group(1), m.start(), ""
+        else:
+            stack.append((m.group(1), m.start(), m.end()))
+
+
+def period_end(path: str) -> date:
+    """The end of the period a filing reports on, from its cover page."""
+    s = open(path, encoding="utf-8", errors="replace").read()
+    text = _text(re.search(r'name="dei:DocumentPeriodEndDate"[^>]*>(.*?)</ix:nonNumeric>', s, re.S).group(1))
+    return datetime.strptime(text, "%B %d, %Y").date()
+
+
 def load(path: str) -> list[Fact]:
     s = open(path, encoding="utf-8", errors="replace").read()
     contexts = {}
@@ -51,11 +75,13 @@ def load(path: str) -> list[Fact]:
     units = {m.group(1): _text(m.group(2))
              for m in re.finditer(r'<xbrli:unit id="([^"]+)">(.*?)</xbrli:unit>', s, re.S)}
     facts = []
-    for m in re.finditer(r"<ix:nonFraction([^>]*)>(.*?)</ix:nonFraction>", s, re.S):
-        attrs, inner = m.group(1), _text(m.group(2))
+    for attrs, at, html in _facts(s):
+        inner = _text(html)
         def get(k, attrs=attrs):
             return (re.search(rf'\b{k}="([^"]*)"', attrs) or [None, None])[1]
-        if not re.search(r"\d", inner):
+        if "numwords" in (get("format") or ""):
+            value = float(NUMBER_WORDS.get(inner.lower(), 0)) * 10 ** int(get("scale") or 0)
+        elif not re.search(r"\d", inner):
             value = 0.0
         else:
             value = float(inner.replace(",", "")) * 10 ** int(get("scale") or 0)
@@ -63,14 +89,14 @@ def load(path: str) -> list[Fact]:
             value = -value
         start, end, members = contexts[get("contextRef")]
         # the row label: the first cell of the <tr> holding the fact, else the sentence around it
-        tr_start = s.rfind("<tr", 0, m.start())
-        tr_end = s.find("</tr>", m.end())
-        row = s[tr_start:tr_end] if 0 <= tr_start and s.rfind("</tr>", 0, m.start()) < tr_start else ""
+        tr_start = s.rfind("<tr", 0, at)
+        tr_end = s.find("</tr>", at)
+        row = s[tr_start:tr_end] if 0 <= tr_start and s.rfind("</tr>", 0, at) < tr_start else ""
         if row:
             cells = [_text(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
             label = next((c for c in cells if c and not re.fullmatch(r"[\s$()%,.\d—-]*", c)), "")
         else:
-            left = _text(s[max(0, m.start() - 600):m.start()])
+            left = _text(s[max(0, at - 600):at])
             label = re.split(r"(?<=[.;])\s", left)[-1][-200:]
         dec = get("decimals")
         facts.append(Fact(get("name"), value, None if dec in (None, "INF") else int(dec),

@@ -58,10 +58,13 @@ SEGMENTS = {"country:US": "u.s.", "us-gaap:NonUsMember": "international",
 SEGMENT_CUE = {"u.s.": re.compile(r"\bU\.S\.", re.I), "international": re.compile(r"\binternational\b", re.I),
                "retail": re.compile(r"\bretail\b", re.I), "foodservice": re.compile(r"\bfoodservice\b", re.I)}
 PRIOR = re.compile(r"\bcompared (?:to|with)\b|\bfrom\s*$|\byear-ago\b|\bprior-year\b", re.I)
+# Where a comparison stops carrying: a new main clause, not an aside such as ", or gross margin of 14.7%".
+PRIOR_SCOPE = re.compile(r";|,\s+(?=(?:and|while|whereas|but|which)\b)", re.I)
 SHARE = re.compile(r"\bmargin\b|% of (?:net )?revenues?\b|\bof (?:total )?net revenues\b", re.I)
 # A finance profile's abbreviations, written out before a claim's words are matched to facts.
 ABBREV = [(re.compile(p, re.I), r) for p, r in [
-    (r"\bEPS\b", "net loss per share"), (r"\bopex\b", "operating expenses"), (r"\bCOGS\b", "cost of goods sold"),
+    (r"\bEPS\b", "net income (loss) per share"), (r"\bopex\b", "operating expenses"),
+    (r"\bCOGS\b", "cost of goods sold"),
     (r"\bSG&A\b", "selling, general and administrative expenses"), (r"\bR&D\b", "research and development expenses"),
     (r"\bcapex\b", "purchases of property, plant and equipment"), (r"\bint'l\b", "international")]]
 CHANGE = re.compile(r"\b(?:increase|decrease|grew|grow|fell|declin|rose|up|down|wide|widen|narrow|year-over-year)",
@@ -76,7 +79,14 @@ IGNORED = GENERIC | _stems("second first third fourth half fiscal primarily decr
                            "retail foodservice europe emea asia apac canada china america latin north margin "
                            "first-half h1 1h ytd january february march april may june july august september "
                            "october november december channel loss income was were mix derived")
-FUTURE = re.compile(r"\bexpect|\bestimat|\bwill\b|\bguidance\b|\boutlook\b|\bthird quarter of 2025\b", re.I)
+FUTURE = re.compile(r"\bexpect|\bestimat|\bwill\b|\bguidance\b|\boutlook\b", re.I)
+QUARTER_NAMED = re.compile(r"\b(first|second|third|fourth)\s+quarter\s+of\s+(\d{4})\b"
+                           r"|\bQ([1-4])\s*'?(\d{4}|\d{2})\b", re.I)
+ORDINAL = {"first": 1, "second": 2, "third": 3, "fourth": 4}
+# A claim that a profit-or-loss figure is income or a loss; the fact's sign says which it was.
+GAIN_WORD = re.compile(r"\b(?:income|profit|earnings|gain)\b", re.I)
+LOSS_WORD = re.compile(r"\bloss(?:es)?\b", re.I)
+SIGNED_CONCEPT = re.compile(r"IncomeLoss|ProfitLoss|GrossProfit|EarningsPerShare|NetIncome")
 REVENUE = "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
 REFERENCE = re.compile(r"\b(?:exhibit|item|note|section|rule|form)\s*$", re.I)
 SIX_MONTHS = re.compile(r"\bsix[- ]months?\b|\bfirst[- ]half\b|\b[hH]1\b|\b1H\b|\byear[- ]to[- ]date\b|\bYTD\b",
@@ -218,6 +228,48 @@ def close(q, value: float) -> bool:
     return abs(abs(value) - q.value) <= q.tolerance + 1e-9
 
 
+def flipped(q, sentence: str, window: str, f) -> bool:
+    """Whether a claim gives profit-or-loss fact `f` the wrong sign: a loss called income or profit, or a
+    profit called a loss. A minus or parentheses on an income figure make it a loss as written."""
+    if q.kind not in ("currency", "amount") or not SIGNED_CONCEPT.search(f.concept) or not f.value:
+        return False
+    loss, gain = bool(LOSS_WORD.search(window)), bool(GAIN_WORD.search(window))
+    if loss == gain:
+        return False
+    written = sentence[:q.start]
+    negative = bool(re.search(r"[-\u2212(]\s*$", written)) or q.raw.lstrip("$ ").startswith(("(", "-"))
+    return (-1 if loss or negative else 1) != (1 if f.value > 0 else -1)
+
+
+def shift(d: date, years: int) -> date:
+    """`d` moved by whole years; a 29 February lands on the 28th."""
+    try:
+        return d.replace(year=d.year + years)
+    except ValueError:
+        return d.replace(year=d.year + years, day=28)
+
+
+def _quarters(text: str) -> list[tuple[int, int]]:
+    out = []
+    for m in QUARTER_NAMED.finditer(text):
+        year = int(m[2] or m[4])
+        out.append((year + 2000 if year < 100 else year, ORDINAL[m[1].lower()] if m[1] else int(m[3])))
+    return out
+
+
+def future(sentence: str, end: date) -> bool:
+    """Whether a sentence speaks of what is expected, or of a quarter after the one the filing reports."""
+    now = (end.year, (end.month - 1) // 3 + 1)
+    return bool(FUTURE.search(sentence)) or any(q > now for q in _quarters(sentence))
+
+
+def earlier_quarter(window: str, end: date) -> bool:
+    """Whether a number's own words name a past quarter the filing has no facts for: not its own quarter, nor
+    the same quarter a year before."""
+    now = (end.year, (end.month - 1) // 3 + 1)
+    return any(q < now and q != (now[0] - 1, now[1]) for q in _quarters(window))
+
+
 def expand(text: str) -> str:
     for pattern, words in ABBREV:
         text = pattern.sub(words, text)
@@ -237,7 +289,7 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                   and not REFERENCE.search(sentence[:q.start])]
             if not qs:
                 continue
-            future = bool(FUTURE.search(sentence))
+            ahead = future(sentence, end)
             subject = None
             prev_end = 0
             for i, q in enumerate(qs):
@@ -262,11 +314,12 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                 if segs and SHARE.search(window) and not content(mwindow):
                     mwindow += " net revenues"  # a segment's share of revenue is its revenue over the total
                 per_share = bool(PER_SHARE.search(window))
-                prior = bool(PRIOR.search(sentence[:q.start]))
-                when = end.replace(year=end.year - 1) if prior else end
+                year_ago = (end.year - 1, (end.month - 1) // 3 + 1)
+                prior = bool(PRIOR.search(PRIOR_SCOPE.split(sentence[:q.start])[-1])) or year_ago in _quarters(window)
+                when = shift(end, -1) if prior else end
                 v = Verdict(q.raw, "skipped")
                 elsewhere = GEOGRAPHY.search(mwindow) if re.search(r"\brevenue|\bsales\b", mwindow, re.I) else None
-                if elsewhere and not future:
+                if elsewhere and not ahead:
                     fits = lambda f, q=q, ps=per_share: unit_ok(q, f, ps)  # noqa: E731
                     hits = [f for f in metric(mwindow, graph, q, months, when, segs, fits, relaxed=True)
                             if close(q, f.value)]
@@ -274,9 +327,9 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                     v = Verdict(q.raw, "wrong" if hits else "unsupported",
                                 f"{q.raw} is {where or 'company'} {_n(hits[0])}, not {elsewhere.group(0)}" if hits
                                 else f"no {elsewhere.group(0)} segment in the facts", bool(hits))
-                elif future:
+                elif ahead or earlier_quarter(window, end):
                     v = Verdict(q.raw, "weak" if _present(q, sentence, presence) else "unsupported",
-                                "guidance: no facts")
+                                "guidance: no facts" if ahead else "an earlier quarter: no facts")
                 else:
                     cands = keys(mwindow, graph, q, months, when, segs,
                                  lambda f, q=q, ps=per_share: unit_ok(q, f, ps) or q.kind == "percent")
@@ -295,9 +348,15 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                         f = next(f for f in stated if close(q, f.value * (100 if f.unit == "xbrli:pure" else 1)))
                         digits = 0 if abs(f.value) >= 100 else 2
                         how = f"{f.concept.split(':')[-1]} {f.months}m to {f.end} = {f.value:,.{digits}f}"
+                        if flipped(q, sentence, window, f):
+                            sure = not ADJUSTED.search(window) and content(mwindow) <= _stems(f.words)
+                            kind = "loss" if f.value < 0 else "profit"
+                            v = Verdict(q.raw, "wrong", f"{how}: the filing reports a {kind}", sure)
                         # a lower-ranked tie only fails to contradict the claim
-                        v = (Verdict(q.raw, "matched", how) if f is stated[0]
-                             else Verdict(q.raw, "weak", f"ambiguous key: {how}, ranked below {_n(stated[0])}"))
+                        elif f is stated[0]:
+                            v = Verdict(q.raw, "matched", how)
+                        else:
+                            v = Verdict(q.raw, "weak", f"ambiguous key: {how}, ranked below {_n(stated[0])}")
                     else:
                         subj = (subject if subject and SHARE.search(window) and not part
                                 else cands[0] if cands else None if named or part else subject)
@@ -312,9 +371,9 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                             elif (q.kind == "percent" and subj is not None
                                   and (SHARE.search(window) or CHANGE.search(window))):
                                 hint = derive_hint(q, window, subj, graph, months, when, end, segs)
-                                other = [w for shift in (-1, 1) for w, _ in
+                                other = [w for years in (-1, 1) for w, _ in
                                          _formulas(q, window, subj, graph, months,
-                                                   when.replace(year=when.year + shift), end, segs)]
+                                                   shift(when, years), end, segs)]
                                 sure = (not ADJUSTED.search(window)
                                         and content(mwindow) <= _stems(subj.words)
                                         and not any(close(q, w) for w in other)
@@ -343,7 +402,7 @@ def _formulas(q, window, subj, graph, months, when, end, segs):
         if rev and rev.value:
             out.append((cur.value / rev.value * 100, f"{_n(subj)} / net revenues ({months}m to {when})"))
     if CHANGE.search(window) or q.kind == "percent":
-        base = graph.value(subj.concept, months, when.replace(year=when.year - 1), subj.members)
+        base = graph.value(subj.concept, months, shift(when, -1), subj.members)
         if base and base.value:
             if q.kind == "percent" and not SHARE.search(window):
                 how = f"change in {_n(subj)}, {when.year} vs {when.year - 1}"
@@ -376,39 +435,15 @@ def _present(q, sentence, presence) -> bool:
     return any(q.matches(e) and p.can_support(e, sentence) for p in presence.passages for e in p.quantities)
 
 
-if __name__ == "__main__":
-    release = sys.argv[1]
-    graph = Graph(xbrl.load(str(FILING_HTML)))
-    presence = ev.load([FILING_TEXT])
-    text = Path(release).read_text()
-    m = re.search(r"quarter ended (\w+ \d{1,2}, \d{4})", text)
-    from datetime import datetime
-    end = datetime.strptime(m.group(1), "%B %d, %Y").date()
-    results = check(text, graph, presence, end)
-    show = sys.argv[2:] or ["wrong", "unsupported"]
-    from collections import Counter
-    print(Counter(v.status for _, v in results))
-    for sentence, v in results:
-        if v.status in show:
-            print(f"  {v.status:11} {v.raw:16} {v.path[:90]:90} | {sentence[:70]}")
-
-
 # -- tables and a claim's own arithmetic -------------------------------------------------------------
 
 COL_CHANGE = re.compile(r"\bchange\b|\byoy\b|\by/y\b", re.I)
-COL_PRIOR = re.compile(r"\b2024\b|'24\b|\b24\b|year-ago|prior", re.I)
-COL_CURRENT = re.compile(r"\b2025\b|'25\b|\b25\b", re.I)
 COL_SHARE = re.compile(r"share of (?:net )?revenue|% of revenue|\bmix\b", re.I)
 TABLE_MILLIONS = re.compile(r"\(\s*\$\s*M\b|\$M\b|in millions", re.I)
-BARE = re.compile(r"^\(?-?\d[\d,]*(?:\.\d+)?\)?$")
-FLAGGED = {"wrong", "unsupported"}
 
 
 def _cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
-
-
-PERIOD_WORDS = re.compile(r"\bQ[1-4]\b|\b20\d\d\b|'?\b\d\d\b|year-ago|\(|\)", re.I)
 
 
 MONEY_CELL = re.compile(r"^[~≈]?\s?[-+−]?\(?[-+−]?\$?\s?\(?[-−]?\d[\d,]*(?:\.\d+)?\)?$")
@@ -449,10 +484,18 @@ def split_row(label: str, cells: list[str]) -> list[tuple[str, list[str], int]]:
     return [(label, cells, 0)]
 
 
-def table_sentences(header: list[str], row: list[str], millions: bool = False) -> list[tuple[str, tuple]]:
+def _year_column(year: int, prior: bool = False) -> re.Pattern:
+    """A column header naming `year`: "2025", "'25", "Q2 25"; a prior one may say "year-ago" instead."""
+    words = r"|year-ago|prior" if prior else ""
+    return re.compile(rf"\b{year}\b|'{year % 100:02d}\b|\b{year % 100:02d}\b{words}", re.I)
+
+
+def table_sentences(header: list[str], row: list[str], end: date,
+                    millions: bool = False) -> list[tuple[str, tuple]]:
     """Each value cell of a row as a sentence that names its metric and its period, with the cell and part
     it came from, so verdicts can be put back in the row's order."""
     millions = millions or bool(TABLE_MILLIONS.search(" ".join(header)))
+    col_current, col_prior = _year_column(end.year), _year_column(end.year - 1, prior=True)
     out = []
     for name, cells, part in split_row(row[0].replace("**", ""), row[1:]):
         label = name
@@ -470,9 +513,9 @@ def table_sentences(header: list[str], row: list[str], millions: bool = False) -
                 sentence = f"{label} net revenues were {qs[0]} of total net revenues{prior}"
             elif COL_CHANGE.search(h):
                 sentence = f"{label} changed by {value} year-over-year."
-            elif COL_PRIOR.search(h) and not COL_CURRENT.search(h):
+            elif col_prior.search(h) and not col_current.search(h):
                 sentence = f"Compared to the year-ago period, {label} was {value}."
-            elif COL_CURRENT.search(h):
+            elif col_current.search(h):
                 qualifier = f", {h}," if ADJUSTED.search(h) else ""
                 sentence = f"{label}{qualifier} was {value}."
             else:
@@ -503,6 +546,8 @@ def written_formulas(text: str, items: list) -> list[tuple[float, str, tuple]]:
                 value *= b
             elif b:
                 value /= b
+            else:
+                break
             how, used = f"{how} {op} {items[k][0].raw}", [*used, items[k][1]]
             out.append((value, how, tuple(used)))
     return out
@@ -550,7 +595,7 @@ def own_arithmetic(items, groups, formulas):
             out.append((q, v))
             continue
         hit = next(((how, used) for value, how, used in formulas
-                    if _formula_matches(q, value) and v not in used), None)
+                    if _formula_matches(q, value) and all(u is not v for u in used)), None)
         if hit is None:
             operands = [(o, ov) for m, (o, ov) in enumerate(items) if m != n and groups[m] == groups[n]
                         and not o.temporal]
@@ -605,7 +650,7 @@ def check_document(text: str, graph: Graph, presence: ev.Evidence, end: date) ->
             per_line[n] = ([], [])
             continue
         keyed = []
-        for sentence, (col, part) in table_sentences(header, _cells(stripped), millions):
+        for sentence, (col, part) in table_sentences(header, _cells(stripped), end, millions):
             verdicts = [v for _, v in check(sentence, graph, presence, end) if v.status != "skipped"]
             qs = [q for q in numbers.find(expand(sentence)) if not q.temporal and not REFERENCE.search(
                 expand(sentence)[:q.start])]
@@ -614,3 +659,17 @@ def check_document(text: str, graph: Graph, presence: ev.Evidence, end: date) ->
         per_line[n] = ([(q, v) for _, q, v in keyed], [0] * len(keyed))
     formulas = [f for entry in per_line.values() if len(entry) == 3 for f in written_formulas(entry[2], entry[0])]
     return {n: own_arithmetic(entry[0], entry[1], formulas) for n, entry in per_line.items()}
+
+
+if __name__ == "__main__":
+    release = sys.argv[1]
+    graph = Graph(xbrl.load(str(FILING_HTML)))
+    presence = ev.load([FILING_TEXT])
+    text = Path(release).read_text()
+    results = check(text, graph, presence, xbrl.period_end(str(FILING_HTML)))
+    show = sys.argv[2:] or ["wrong", "unsupported"]
+    from collections import Counter
+    print(Counter(v.status for _, v in results))
+    for sentence, v in results:
+        if v.status in show:
+            print(f"  {v.status:11} {v.raw:16} {v.path[:90]:90} | {sentence[:70]}")

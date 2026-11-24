@@ -8,15 +8,19 @@ and `onus.evidence` and runs on its own.
 
 ## How it works
 
-- **Evidence facts.** `xbrl.py` reads the 10-Q's inline XBRL (`data/q2_2025_10q.htm`): 1,046 facts,
-  each with its concept, period, segment members, unit, sign and the table row label beside it.
+- **Evidence facts.** `xbrl.py` reads the 10-Q's inline XBRL (`data/q2_2025_10q.htm`): all 1,097 facts,
+  a fact nested inside another and one written as a word ("one") included, each with its concept,
+  period, segment members, unit, sign and the table row label beside it.
 - **Claim keys.** `graph_check.py` gives each number in a document a key from code: its period (from
-  the document, "compared to", "first half", carried through a paragraph), its metric (the words
-  around it matched against fact labels, finance abbreviations written out) and its segment.
+  the filing's period end, "compared to" within its own main clause, a named quarter, "first half",
+  carried through a paragraph), its metric (the words around it matched against fact labels, finance
+  abbreviations written out) and its segment. A later quarter is guidance and an earlier one other
+  than the year-ago quarter has no facts, so neither is checked against a fact.
 - **Verdicts.** A number is *matched* by key, else *derived* along one formula (share of revenue,
   percentage change, difference), else checked against the claim's own other numbers (sums,
   differences, ratios), else held to presence in the filing's text as *weak*. A number its key
-  contradicts is *wrong*; one with no key and no presence is *unsupported*.
+  contradicts is *wrong*, as is an income or loss figure given the wrong sign ("operating income of
+  $34.9 million" for a $34.9 million loss); one with no key and no presence is *unsupported*.
 - **Tables.** Each cell is read by its row label (metric) and column header (period); a "Change"
   column is recomputed from the facts, a "($M)" header scales bare cells.
 - **Embeddings (optional).** `emb_map.py` ranks facts by meaning with a sentence-transformers model
@@ -72,8 +76,19 @@ layer against onus alone:
 | 6 | 33 / 50, 131 / 375 | 38 / 50, 100 / 375 |
 | 7 | 29 / 39, 34 / 322 | 32 / 39, 30 / 322 |
 
-The graph keeps its own copy of the word lists it matches with, so changes to onus's table matching move
-only onus's verdicts, never the graph's keys.
+The graph keeps its own copy of the word lists it matches with, so changes to onus's table matching never
+change which fact a number keys to. They can still move the graph's verdicts: whether a "wrong" is
+certain asks onus whether a filing table cell states the claimed value, and weak against unsupported asks
+whether the number is present in the filing's text.
+
+Fixing the sign check, the year-ago scope of "compared to", the 51 nested facts the reader dropped, the
+facts written as words, and quarters other than the filing's own left every set's scores above unchanged
+but set 1's: two guidance figures for the third quarter, called wrong against the second quarter's
+revenue before, are now guidance with no facts, and one of them falls back to onus, which passes it.
+
+Much of the prototype is tuned to this one filer: the segment members in `SEGMENTS`, the abbreviations in
+`ABBREV`, and a period end and comparison year that come from this filing. Scoring another filer starts
+there.
 
 ## Running
 

@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 from collections import defaultdict
-from datetime import date
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -25,7 +24,7 @@ if g.MODE != "lexical":
     g.MAPPER = Mapper(os.environ.get("MODEL", "BAAI/bge-small-en-v1.5"), g.SEGMENTS)
 graph = g.Graph(xbrl.load(str(g.FILING_HTML)))
 presence = ev.load([g.FILING_TEXT])
-end = date(2025, 6, 28)
+end = xbrl.period_end(str(g.FILING_HTML))
 
 doc = HERE / f"{sys.argv[1] if len(sys.argv) > 1 else 'cases'}_doc.md"
 lines = ["Beyond Meat reported results for its second quarter ended June 28, 2025.", ""]

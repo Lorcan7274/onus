@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 from collections import Counter, defaultdict
-from datetime import date
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -19,6 +18,7 @@ from agent_numbers import rows as numbers_in  # noqa: E402
 from onus import evidence as ev  # noqa: E402
 
 LABELS = __import__(f"labels_{SET}").LABELS
+END = xbrl.period_end(str(g.FILING_HTML))
 rows = [r for p in sorted(BRIEFS.glob("brief_*.md")) for r in numbers_in(p)]
 for r in rows:
     r["label"] = None
@@ -52,7 +52,7 @@ def graph_flags(mode):
     presence = ev.load([g.FILING_TEXT])
     out = {}
     for rs in by_line.values():
-        verdicts = [v for _, v in g.check(rs[0]["text"], graph, presence, date(2025, 6, 28)) if v.status != "skipped"]
+        verdicts = [v for _, v in g.check(rs[0]["text"], graph, presence, END) if v.status != "skipped"]
         pool = defaultdict(list)
         for v in verdicts:
             pool[v.raw].append(v)
@@ -60,7 +60,7 @@ def graph_flags(mode):
             vs = pool.get(r["raw"], [])
             v = vs[r["k"] - 1] if len(vs) >= r["k"] else None
             st = v.status if v else "none"
-            out[id(r)] = "flag" if st in ("wrong", "unsupported") else "weak" if st in ("weak", "none") else "pass"
+            out[id(r)] = "flag" if st in ("wrong", "unsupported") else st if st in ("weak", "none") else "pass"
             r.setdefault("why", {})[mode] = f"{st}: {v.path[:70]}" if v else "not parsed"
     return out
 
@@ -71,7 +71,7 @@ def graph_v2():
     presence = ev.load([g.FILING_TEXT])
     out = {}
     for brief in sorted({r["brief"] for r in rows}):
-        per_line = g.check_document((BRIEFS / f"{brief}.md").read_text(), graph, presence, date(2025, 6, 28))
+        per_line = g.check_document((BRIEFS / f"{brief}.md").read_text(), graph, presence, END)
         for (b, line), rs in by_line.items():
             if b != brief:
                 continue
@@ -86,7 +86,7 @@ def graph_v2():
                          for r in rs]
             for r, v in pairs:
                 st = v.status if v else "none"
-                out[id(r)] = "flag" if st in ("wrong", "unsupported") else "weak" if st in ("weak", "none") else "pass"
+                out[id(r)] = "flag" if st in ("wrong", "unsupported") else st if st in ("weak", "none") else "pass"
                 r.setdefault("why", {})["v2"] = f"{st}: {v.path[:80]}" if v else "not parsed"
                 r["graph_status"] = st
                 r["graph_sure"] = bool(v and v.sure)
