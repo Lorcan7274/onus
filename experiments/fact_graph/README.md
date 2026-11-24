@@ -37,9 +37,13 @@ against onus alone.
 | 2 | onus + graph layer | 49 / 57 | 27 / 214 |
 | 3 (held out) | onus | 24 / 39 | 63 / 360 |
 | 3 (held out) | onus + graph layer | 30 / 39 | 58 / 360 |
+| 4 (held out, rule frozen first) | onus | 32 / 47 | 63 / 380 |
+| 4 (held out, rule frozen first) | onus + graph layer | 36 / 47 | 63 / 380 |
 
-The layering rule was written after set 3 was scored, so set 3 is not a clean test of it; the next
-held-out set is. Most remaining false flags are onus's own: derived figures whose inputs sit in another
+The layering rule was written after set 3 was scored, so set 3 is not a clean test of it; set 4 is. On
+set 4 the layer catches 4 more errors and loses none. It clears 12 of onus's false flags and adds 12 of
+its own, all from keys that land on the wrong fact or period ("~1,200" to a share count, operating cash
+flow to lease payments), so the next step is to let the graph add a flag only when its key is certain. Most remaining false flags are onus's own: derived figures whose inputs sit in another
 sentence with no written formula, which neither layer can confirm yet.
 
 ## Running
