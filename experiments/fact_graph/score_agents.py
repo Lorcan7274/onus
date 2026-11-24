@@ -89,6 +89,7 @@ def graph_v2():
                 out[id(r)] = "flag" if st in ("wrong", "unsupported") else "weak" if st in ("weak", "none") else "pass"
                 r.setdefault("why", {})["v2"] = f"{st}: {v.path[:80]}" if v else "not parsed"
                 r["graph_status"] = st
+                r["graph_sure"] = bool(v and v.sure)
     return out
 
 
@@ -100,13 +101,17 @@ tools = {**baseline, "onus (this checkout)": onus_flags(g.ROOT),
          "graph +tables+arith": graph_v2()}
 
 
-def layered(onus: dict) -> dict:
-    """onus with the graph as a second layer: a number the graph's key contradicts is flagged, one it matches or
-    derives from verified numbers is cleared, and every other verdict is onus's own."""
-    return {id(r): "flag" if r["graph_status"] == "wrong" else "pass" if r["graph_status"] in ("matched", "derived")
-            else onus[id(r)] for r in rows}
+def layered(onus: dict, sure_only: bool = True) -> dict:
+    """onus with the graph as a second layer: a number the graph's key certainly contradicts is flagged, one it
+    matches or derives from verified numbers is cleared, and every other verdict is onus's own."""
+    def verdict(r):
+        if r["graph_status"] == "wrong" and (r["graph_sure"] or not sure_only):
+            return "flag"
+        return "pass" if r["graph_status"] in ("matched", "derived") else onus[id(r)]
+    return {id(r): verdict(r) for r in rows}
 
 
+tools["onus + graph layer (any wrong)"] = layered(tools["onus (this checkout)"], sure_only=False)
 tools["onus + graph layer"] = layered(tools["onus (this checkout)"])
 print(f"{'':16} {'F caught':>10} {'T passed':>10} {'T verified':>11} {'U flagged':>10} {'R flagged':>10}")
 for name, res in tools.items():

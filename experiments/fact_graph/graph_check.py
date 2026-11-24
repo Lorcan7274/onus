@@ -65,6 +65,7 @@ class Verdict:
     raw: str
     status: str  # matched | derived | wrong | weak | unsupported | skipped
     path: str = ""
+    sure: bool = False  # a "wrong" whose key leaves no doubt: only then may a second layer add a flag
 
 
 @dataclass
@@ -152,6 +153,30 @@ def keys(window, graph, q, months, when, segs, ok):
     return [f for sim, f in ranked[:3] if sim >= ranked[0][0] - DELTA]  # a near-tie is kept, as word overlap keeps one
 
 
+# Wording that makes a number something other than the reported figure it names.
+ADJUSTED = re.compile(r"\bex[- ]|\bexcluding\b|\bunderlying\b|\badjusted\b|\bcore\b|\bwould (?:have|be)\b|"
+                      r"\bpro forma\b|\blike-for-like\b|\bimpl(?:ied|ies)\b|\bannuali[sz]ed\b|\brun[- ]rate\b|"
+                      r"\bper (?:pound|lb|month|quarter)\b|\bnamed items\b", re.I)
+
+
+def _scaled(f) -> float:
+    return f.value * (100 if f.unit == "xbrli:pure" else 1)
+
+
+def certain(q, f, window: str, mwindow: str, graph: Graph) -> bool:
+    """Whether a mismatch with fact `f` proves the claim wrong: `f` explains every word of the claim's metric,
+    nothing marks the number as adjusted or as a change, and no other period, segment or date of the same
+    concept holds the claimed value (then the misreading may be ours). A tie needs no test: a number called
+    wrong has already failed every fact that ties."""
+    if ADJUSTED.search(window):
+        return False
+    if not content(mwindow) <= _stems(f.words):
+        return False
+    if q.group == "money" and CHANGE.search(window):
+        return False
+    return not any(g.concept == f.concept and g is not f and close(q, _scaled(g)) for g in graph.facts)
+
+
 def close(q, value: float) -> bool:
     return abs(abs(value) - q.value) <= q.tolerance + 1e-9
 
@@ -210,7 +235,7 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                     where = ", ".join(SEGMENTS[m] for m in hits[0].members if m in SEGMENTS) if hits else ""
                     v = Verdict(q.raw, "wrong" if hits else "unsupported",
                                 f"{q.raw} is {where or 'company'} {_n(hits[0])}, not {elsewhere.group(0)}" if hits
-                                else f"no {elsewhere.group(0)} segment in the facts")
+                                else f"no {elsewhere.group(0)} segment in the facts", bool(hits))
                 elif future:
                     v = Verdict(q.raw, "weak" if _present(q, sentence, presence) else "unsupported",
                                 "guidance: no facts")
@@ -238,11 +263,17 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                             if stated:
                                 f = stated[0]
                                 what = f"{f.concept.split(':')[-1]} {f.months}m to {f.end} is {f.value:,.2f}"
-                                v = Verdict(q.raw, "wrong", what)
+                                v = Verdict(q.raw, "wrong", what, certain(q, f, window, mwindow, graph))
                             elif (q.kind == "percent" and subj is not None
                                   and (SHARE.search(window) or CHANGE.search(window))):
                                 hint = derive_hint(q, window, subj, graph, months, when, end, segs)
-                                v = Verdict(q.raw, "wrong", hint)
+                                other = [w for shift in (-1, 1) for w, _ in
+                                         _formulas(q, window, subj, graph, months,
+                                                   when.replace(year=when.year + shift), end, segs)]
+                                sure = (not ADJUSTED.search(window)
+                                        and content(mwindow) <= _stems(subj.words)
+                                        and not any(close(q, w) for w in other))
+                                v = Verdict(q.raw, "wrong", hint, sure)
                             else:
                                 v = Verdict(q.raw, "weak" if _present(q, sentence, presence) else "unsupported",
                                             "no key: presence only")
@@ -334,7 +365,7 @@ def _cells(line: str) -> list[str]:
 PERIOD_WORDS = re.compile(r"\bQ[1-4]\b|\b20\d\d\b|'?\b\d\d\b|year-ago|\(|\)", re.I)
 
 
-MONEY_CELL = re.compile(r"^[-+−]?\(?[-+−]?\$?\s?\(?[-−]?\d[\d,]*(?:\.\d+)?\)?$")
+MONEY_CELL = re.compile(r"^[~≈]?\s?[-+−]?\(?[-+−]?\$?\s?\(?[-−]?\d[\d,]*(?:\.\d+)?\)?$")
 # A unit stated once for a whole document: "in $M unless noted", "($ in millions)".
 DOC_MILLIONS = re.compile(r"\bin \$\s?M\b|\$M unless|\$ in millions|\bin \$?\s?millions\b|\(\$\s?M\)", re.I)
 MARGIN_PART = re.compile(r"^(?P<a>.*?\S)\s*\((?P<b>[-+−]?\d[\d.,]*\s*(?:%|bp\b|pts?\b))\)\s*$")
@@ -396,7 +427,8 @@ def table_sentences(header: list[str], row: list[str], millions: bool = False) -
             elif COL_PRIOR.search(h) and not COL_CURRENT.search(h):
                 sentence = f"Compared to the year-ago period, {label} was {value}."
             elif COL_CURRENT.search(h):
-                sentence = f"{label} was {value}."
+                qualifier = f", {h}," if ADJUSTED.search(h) else ""
+                sentence = f"{label}{qualifier} was {value}."
             else:
                 sentence = f"{label} {h} was {value}."
             out.append((sentence, (col, part)))
@@ -454,8 +486,9 @@ def _formula_matches(q, value: float) -> bool:
 
 
 def _judge(q, v, how, used):
-    if any(x.status == "wrong" and "built on" not in x.path and " = " not in x.path[:12] for x in used):
-        return Verdict(q.raw, "wrong", f"{q.raw} = {how}, built on a wrong number")
+    wrong = [x for x in used if x.status == "wrong" and "built on" not in x.path and " = " not in x.path[:12]]
+    if wrong:
+        return Verdict(q.raw, "wrong", f"{q.raw} = {how}, built on a wrong number", any(x.sure for x in wrong))
     if all(x.status in ("matched", "derived") for x in used):
         return Verdict(q.raw, "derived", f"{q.raw} = {how}, from verified numbers")
     return Verdict(q.raw, "weak", f"{q.raw} = {how}, from numbers only present")
