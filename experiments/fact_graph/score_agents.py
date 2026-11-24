@@ -88,6 +88,7 @@ def graph_v2():
                 st = v.status if v else "none"
                 out[id(r)] = "flag" if st in ("wrong", "unsupported") else "weak" if st in ("weak", "none") else "pass"
                 r.setdefault("why", {})["v2"] = f"{st}: {v.path[:80]}" if v else "not parsed"
+                r["graph_status"] = st
     return out
 
 
@@ -97,11 +98,21 @@ tools = {**baseline, "onus (this checkout)": onus_flags(g.ROOT),
          "graph lexical": graph_flags("lexical"),
          **({"graph embed": graph_flags("embed")} if importlib.util.find_spec("sentence_transformers") else {}),
          "graph +tables+arith": graph_v2()}
+
+
+def layered(onus: dict) -> dict:
+    """onus with the graph as a second layer: a number the graph's key contradicts is flagged, one it matches or
+    derives from verified numbers is cleared, and every other verdict is onus's own."""
+    return {id(r): "flag" if r["graph_status"] == "wrong" else "pass" if r["graph_status"] in ("matched", "derived")
+            else onus[id(r)] for r in rows}
+
+
+tools["onus + graph layer"] = layered(tools["onus (this checkout)"])
 print(f"{'':16} {'F caught':>10} {'T passed':>10} {'T verified':>11} {'U flagged':>10} {'R flagged':>10}")
 for name, res in tools.items():
     c = Counter((r["label"], res[id(r)]) for r in rows)
     n = Counter(r["label"] for r in rows)
-    verified = c["T", "pass"] if "graph" in name else "-"
+    verified = c["T", "pass"] if name.startswith("graph") else "-"
     print(f"{name:16} {c['F','flag']:>4}/{n['F']:<5} {c['T','pass'] + c['T','weak']:>4}/{n['T']:<5} "
           f"{verified:>5}/{n['T']:<5} {c['U','flag']:>4}/{n['U']:<5} {c['R','flag']:>4}/{n['R']:<5}")
 json.dump([{**{k: v for k, v in r.items() if k != "why"}, "why": r.get("why", {}),

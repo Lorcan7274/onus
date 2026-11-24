@@ -1,8 +1,10 @@
 # Fact graph (experiment)
 
-A prototype of checking numbers as facts rather than as a bag of numbers, built on Beyond Meat's
-Q2 2025 filings. It is not wired into `onus`; it imports `onus.numbers` and `onus.evidence` and runs on
-its own.
+A prototype second verification layer for onus: it checks numbers as facts rather than as a bag of
+numbers, built on Beyond Meat's Q2 2025 filings. It does not replace onus's checks. Layered on top, it
+flags a number whose fact contradicts it and clears an onus flag on a number it verifies by key or
+formula; every other verdict is onus's own. It is not wired into `onus` yet; it imports `onus.numbers`
+and `onus.evidence` and runs on its own.
 
 ## How it works
 
@@ -22,24 +24,23 @@ its own.
 
 ## Results
 
-Three sets of agent briefs written from the Q2 release, every number labelled by hand against the 10-Q
+Agent briefs written from the Q2 release, every number labelled by hand against the 10-Q
 (`agent_briefs/setN/`, `labels_setN.py`). Sets 1 and 2 were used to develop the checker; set 3 was
-written and labelled after the code was frozen and scored once.
+written and labelled after the code was frozen and scored once. The measure is onus with the layer
+against onus alone.
 
-Held-out set 3 (a credit recap and a bull/bear note from the original release, a deck from the corrected
-one; 360 true numbers, 39 false):
-
-| Checker | False caught (of 39) | True flagged (of 360) | True verified by key or formula |
+| Set | Checker | False caught | True flagged |
 |---|---|---|---|
-| onus `main` | 12 | 59 | n/a |
-| onus with the table-row fixes | 24 | 63 | n/a |
-| graph, word overlap only | 25 | 103 | 46 |
-| graph before structure parsing (`8d2d4bd`) | 26 | 76 | 78 |
-| **graph with structure parsing and written arithmetic** | **29** | **61** | **95** |
+| 1 | onus | 42 / 62 | 20 / 270 |
+| 1 | onus + graph layer | 52 / 62 | 18 / 270 |
+| 2 | onus | 42 / 57 | 45 / 214 |
+| 2 | onus + graph layer | 49 / 57 | 27 / 214 |
+| 3 (held out) | onus | 24 / 39 | 63 / 360 |
+| 3 (held out) | onus + graph layer | 30 / 39 | 58 / 360 |
 
-What it still gets wrong: derived figures whose inputs sit in another sentence with no written formula
-(ex-charges opex, free cash flow, shares of the decline), mix columns read against the wrong period, and
-keys that land on the wrong fact ("$0.38/share" to share-based compensation, "$1.0M" to restricted cash).
+The layering rule was written after set 3 was scored, so set 3 is not a clean test of it; the next
+held-out set is. Most remaining false flags are onus's own: derived figures whose inputs sit in another
+sentence with no written formula, which neither layer can confirm yet.
 
 ## Running
 
