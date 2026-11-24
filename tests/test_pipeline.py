@@ -554,3 +554,169 @@ def test_a_dollar_figure_in_a_table_under_a_unit_note_supports_a_claim_in_that_u
     (tmp_path / "memo.md").write_text("Net income was $4.2B.\n\nNet income was $4.9B.\n")
     result = check(tmp_path / "memo.md", e, Settings(llm=False))
     assert [(f.code, f.message) for f in result.findings] == [("ONS001", "$4.9B: no number like it in the evidence")]
+
+
+# -- tables -------------------------------------------------------------------
+
+FILING = """Condensed Consolidated Statements of Operations
+(In thousands, except share and per share data)
+Three Months Ended | Six Months Ended
+June 28, 2025 | June 29, 2024 | June 28, 2025 | June 29, 2024
+Net revenues | $ | 74,958 | $ | 93,185 | $ | 143,689 | $ | 168,788
+Total operating expenses | 43,503 | 47,648 | 98,637 | 104,790
+Loss from operations | (34,912) | (33,931) | (91,111) | (87,405)
+Other, net | 7,731 | 477 | 12,049 | 600
+Net loss per share—basic and diluted | $ | (0.38) | $ | (0.53) | $ | (1.08) | $ | (1.37)
+
+Loss from operations as a percentage of net revenues
+Three Months Ended | Six Months Ended
+June 28, 2025 | June 29, 2024 | June 28, 2025 | June 29, 2024
+Loss from operations | (46.5)% | (36.4)% | (63.4)% | (51.8)%
+
+Cash, cash equivalents and restricted cash at the end of the period | $ | 117,269 | $ | 158,009
+
+State of incorporation: Delaware | 26-4087597
+"""
+
+
+def filing():
+    e = ev.Evidence()
+    e.add("10q.md", FILING)
+    return e
+
+
+def test_a_bare_cell_under_a_unit_note_and_an_accounting_negative_support_a_claim(tmp_path):
+    claims_ = scanned(tmp_path, "Operating expenses were $43.5 million.\n\nLoss from operations was $(34.9)M.\n\n"
+                                "Net loss per share was $0.38, compared to $0.53.\n\nOther, net was $7.7 million.")
+    assert [verify.check_numbers(c, filing()) for c in claims_] == [[], [], [], []]
+
+
+def test_a_table_number_supports_only_a_claim_about_its_row(tmp_path):
+    (c,) = scanned(tmp_path, "Adjusted EBITDA was $47.6 million.")
+    assert [f.raw for f in verify.check_numbers(c, filing())] == ["$47.6 million"], \
+        "47,648 is operating expenses, not EBITDA"
+
+
+def test_a_six_month_column_does_not_support_a_quarter(tmp_path):
+    quarter, half = scanned(tmp_path, "Operating margin was -51.8%, against -36.4% in the year-ago period.\n\n"
+                                      "In the six months, the loss from operations margin was 51.8%.")
+    assert [f.raw for f in verify.check_numbers(quarter, filing())] == ["51.8%"]
+    assert verify.check_numbers(half, filing()) == []
+
+
+def test_arithmetic_on_a_table_row_supports_only_a_claim_about_that_row(tmp_path):
+    ebitda, cash = scanned(tmp_path, "Adjusted EBITDA was -34.7% of net revenues in the period.\n\n"
+                                     "Cash and restricted cash fell 34.7%.")
+    assert [f.raw for f in verify.check_numbers(ebitda, filing())] == ["34.7%"], "158,009 vs 117,269 is cash"
+    assert verify.check_numbers(cash, filing()) == [] and cash.status == "derived"
+
+
+def test_a_tax_id_is_no_number_to_match(tmp_path):
+    (c,) = scanned(tmp_path, "There were 26 stores.")
+    assert [f.raw for f in verify.check_numbers(c, filing())] == ["26"]
+
+
+RELEASE = "In Q2 2025, operating expenses were $43.5 million and EBITDA was a loss of $26.0 million.\n"
+
+
+def test_a_document_table_carries_its_caption_unit_to_its_cells(tmp_path):
+    e = ev.load(texts=[RELEASE])
+    (tmp_path / "brief.md").write_text("## Headline Numbers ($M)\n\n| Metric | Q2 2025 |\n|---|---|\n"
+                                       "| Operating expenses | 43.5 |\n| Adjusted EBITDA | (26.0) |\n"
+                                       "| Gross margin (%) | 11.5 |\n| Opex | 47.4 |\n")
+    result = check(tmp_path / "brief.md", e, Settings(llm=False))
+    assert [(f.label, f.message) for f in result.findings] == [
+        ("line 7", "11.5: no count like it in the evidence"), ("line 8", "47.4: no number like it in the evidence")]
+
+
+def test_a_filing_style_table_in_a_document_reads_its_unit_note_and_periods(tmp_path):
+    (tmp_path / "release.md").write_text(FILING.split("\n\n")[0])
+    result = check(tmp_path / "release.md", filing(), Settings(llm=False))
+    assert result.findings == [], "a row claim covers every column its table's headers name"
+
+
+def test_deck_and_word_tables_take_their_unit_from_a_title_header_or_caption(tmp_path):
+    import docx
+    from pptx import Presentation
+    from pptx.util import Inches
+
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[5])
+    slide.shapes.title.text = "Headline numbers ($M)"
+    table = slide.shapes.add_table(2, 2, Inches(1), Inches(2), Inches(4), Inches(1)).table
+    for (r, c), text in {(0, 0): "Metric", (0, 1): "Q2 2025", (1, 0): "Operating expenses", (1, 1): "43.5"}.items():
+        table.cell(r, c).text = text
+    prs.save(tmp_path / "d.pptx")
+
+    w = docx.Document()
+    w.add_paragraph("Operating results (in millions)")
+    t = w.add_table(rows=2, cols=2)
+    for (r, c), text in {(0, 0): "Metric", (0, 1): "Q2 2025", (1, 0): "EBITDA", (1, 1): "(26.0)"}.items():
+        t.cell(r, c).text = text
+    w.save(tmp_path / "m.docx")
+
+    e = ev.load(texts=[RELEASE])
+    for path in (tmp_path / "d.pptx", tmp_path / "m.docx"):
+        assert check(path, e, Settings(llm=False)).findings == [], path.name
+
+
+def test_a_line_of_text_joined_by_bars_is_no_table_row(tmp_path):
+    e = ev.Evidence()
+    e.add("status.md", "Tests: 241 passed | Coverage: 87% | Lint: clean\n\n"
+                       "Home | About | We serve 3,400 schools across 12 states.\n")
+    claims_ = scanned(tmp_path, "Coverage is 87%.\n\nWe serve 3,400 schools.")
+    assert [verify.check_numbers(c, e) for c in claims_] == [[], []]
+
+
+def test_a_table_cell_fits_a_claim_through_its_column_header_or_a_synonym(tmp_path):
+    e = ev.Evidence()
+    e.add("t.md", "| Quarter | Revenue | Customers |\n|---|---|---|\n| Q2 2025 | $75.0M | 1,200 |\n\n"
+                  "(In thousands)\nThree Months Ended\nJune 28, 2025 | June 29, 2024\n"
+                  "Net revenues | $ | 74,958 | $ | 93,185\nInventories | 142,014 | 150,000\n\n"
+                  "| Parser | Time (ms) |\n|---|---|\n| new | 200 |\n")
+    claims_ = scanned(tmp_path, "Revenue was $75.0M in Q2 2025.\n\nWe had 1,200 customers in Q2 2025.\n\n"
+                                "Sales were $75.0 million in the second quarter.\n\n"
+                                "Inventory was $142.0 million.\n\nLatency dropped to 200 ms.")
+    assert [verify.check_numbers(c, e) for c in claims_] == [[], [], [], [], []]
+
+
+def test_a_year_column_supports_a_claim_about_that_year(tmp_path):
+    e = ev.Evidence()
+    e.add("10k.md", "(In millions)\n| | Years Ended December 31, |\n| | 2025 | 2024 |\n"
+                    "Revenue | $ | 110 | $ | 100\n")
+    claims_ = scanned(tmp_path, "Revenue was $110 million in 2025.\n\nFY2025 revenue was $110 million.\n\n"
+                                "Revenue rose 10% year-over-year to $110 million.\n\n"
+                                "Revenue was $110 million in the second quarter.")
+    assert [[f.raw for f in verify.check_numbers(c, e)] for c in claims_] == [[], [], [], ["$110 million"]]
+
+
+def test_a_header_date_or_a_count_row_under_a_unit_note_is_no_money(tmp_path):
+    e = ev.Evidence()
+    e.add("10q.md", "(In thousands, except per share data)\nThree Months Ended\nJune 28, 2025 | June 29, 2024\n"
+                    "Weighted average shares outstanding | 63,412 | 60,000\nEmployees | 1,200 | 1,100\n")
+    claims_ = scanned(tmp_path, "Restructuring costs were $2.0 million.\n\n"
+                                "We repurchased $63.4 million of shares.\n\nEmployee costs were $1.2 million.")
+    assert [[f.raw for f in verify.check_numbers(c, e)] for c in claims_] == [
+        ["$2.0 million"], ["$63.4 million"], ["$1.2 million"]]
+
+
+def test_a_document_column_that_counts_things_keeps_its_bare_numbers(tmp_path):
+    e = ev.load(texts=["Retail revenue was $32.9 million across 120 stores, and we had 1,200 customers."])
+    (tmp_path / "brief.md").write_text("Revenue by segment (in thousands)\n| Segment | Revenue | Stores |\n"
+                                       "|---|---|---|\n| Retail | 32,909 | 120 |\n\n(In thousands)\n| | 2025 | 2024 |\n"
+                                       "| Customers | 1,200 | 1,200 |\n")
+    flagged = {f.message.split(":")[0] for f in check(tmp_path / "brief.md", e, Settings(llm=False)).findings}
+    assert not flagged & {"120", "1,200"}
+
+
+def test_an_eps_claim_fits_a_per_share_row_and_not_a_share_count_column(tmp_path):
+    e = ev.Evidence()
+    e.add("10q.md", "(In thousands, except per share data)\nThree Months Ended\nJune 28, 2025 | June 29, 2024\n"
+                    "Net loss per share—basic and diluted | $ | (0.38) | $ | (0.53)\n\n"
+                    "(In thousands, except share data)\n| Common Stock | |\n| Shares | Amount |\n"
+                    "Issuance of common stock under equity incentive plans, net | 228,702 | (430)\n")
+    eps, = scanned(tmp_path, "EPS was $(0.38), compared to $(0.53).")
+    assert verify.check_numbers(eps, e) == []
+    (tmp_path / "brief.md").write_text("## Headline numbers ($M)\n\n| Metric | Q2 |\n|---|---|\n| EPS | (0.43) |\n")
+    findings = check(tmp_path / "brief.md", e, Settings(llm=False)).findings
+    assert [f.message.split(":")[0] for f in findings if f.label == "line 5"] == ["0.43"]

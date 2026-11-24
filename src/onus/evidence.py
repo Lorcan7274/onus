@@ -29,6 +29,7 @@ its file back.
 
 from __future__ import annotations
 
+import bisect
 import fnmatch
 import json
 import math
@@ -65,6 +66,140 @@ CODE_WEIGHT = 0.5         # a code passage's rank against an equally relevant pr
 TABLE_SUFFIXES = {".csv", ".tsv"}
 _SENTENCE_END = re.compile(r"[.!?](?=\s)|\n\s*\n")
 
+# A period longer than a quarter but shorter than a year, and a year, in a column's header or a claim.
+HALF_PERIOD = re.compile(r"\b(?:six|nine|6|9)[\s-]+months?\b|\b(?:first|second)[\s-]+half\b|\b[12]?h[12]\b"
+                         r"|\byear[\s-]+to[\s-]+date\b|\bytd\b", re.I)
+ANNUAL_PERIOD = re.compile(r"\b(?:twelve|12)[\s-]+months?\b|\bfull[\s-]+year\b|\bfiscal\s+(?:year|\d{2,4})\b"
+                           r"|\bfy\s?\d{2,4}\b|\byears?\s+ended\b|\bannual", re.I)
+QUARTER_PERIOD = re.compile(r"\b(?:three|3)[\s-]+months?\b|\bquarter\b|\bq[1-4]\b", re.I)
+_YEAR = re.compile(r"(?:19|20)\d\d")
+_DASHES = re.compile(r"[-:\u2013\u2014]+")
+
+
+@dataclass(frozen=True)
+class Cell:
+    """A number's place in a table: its row's label and its column's headers."""
+    start: int
+    end: int
+    label: str
+    column: str
+
+
+def _parts(line: str, offset: int) -> list[tuple[int, int, str]]:
+    """A row's cells as (start, end, text), empty cells and lone currency signs dropped."""
+    out, at = [], 0
+    for piece in line.split("|"):
+        text = piece.strip()
+        if text and text not in ("$", "€", "£"):
+            start = offset + at + piece.find(text)
+            out.append((start, start + len(text), text))
+        at += len(piece) + 1
+    return out
+
+
+def _columns(headers: list[list[str]], n: int) -> list[str]:
+    """Each of `n` value columns' header text: a header row with n cells names one each, one with
+    n + 1 names the label column first, one with fewer spans them evenly ("Three Months Ended | Six
+    Months Ended" over four), any other is skipped."""
+    out = [""] * n
+    for row in headers:
+        if len(row) == n + 1:
+            row = row[1:]
+        if row and n % len(row) == 0:
+            width = n // len(row)
+            for i in range(n):
+                out[i] = f"{out[i]} {row[i // width]}".strip()
+    return out
+
+
+def table_cells(text: str) -> list[Cell]:
+    """Every number filling a cell after the first in each `a | b | c` row of `text`, with its row's
+    label and the headers above its column. Only a statement's rows count: those under a unit note
+    or a period header, or with two numbers or more. A blank line ends a table."""
+    out: list[Cell] = []
+    headers: list[list[str]] = []
+    in_data, stated, pos = False, False, 0
+    for line in text.split("\n"):
+        start, pos = pos, pos + len(line) + 1
+        if not line.strip():
+            headers, in_data, stated = [], False, False
+            continue
+        row = "|" in line
+        parts = _parts(line, start) if row else [(start, pos - 1, line.strip())]
+        values = [c for c in parts[1:] if numbers.VALUE_CELL.fullmatch(c[2])] if row else []
+        if numbers.UNIT_NOTE.search(line) and not values:
+            stated = True
+        short = len(line) <= numbers.PROSE_LINE
+        years = bool(values) and all(_YEAR.fullmatch(t) for _, _, t in values) and not in_data
+        if values and not years:
+            in_data = True
+            if stated or len(values) > 1:
+                columns = _columns(headers, len(values))
+                out += [Cell(a, b, parts[0][2], c) for (a, b, _), c in zip(values, columns, strict=True)]
+        elif short and (numbers.PERIOD_HEADER.search(line) or (row and not in_data)):
+            if in_data:
+                headers, in_data = [], False
+            stated = stated or bool(numbers.PERIOD_HEADER.search(line))
+            cells = [t for _, _, t in parts if not numbers.UNIT_NOTE.search(t) and not _DASHES.fullmatch(t)]
+            if cells:
+                headers.append(cells)
+    return out
+
+
+SUFFIXES = ("ings", "ing", "ions", "ion", "ment", "ees", "ee", "es", "ed", "s", "e")
+# Words a claim and a row label use for one thing.
+SYNONYMS = {"sales": "revenue", "turnover": "revenue", "eps": "pershare", "headcount": "employee",
+            "staff": "employee", "workforce": "employee", "attrition": "churn"}
+_PER_SHARE = re.compile(r"\bper\s+(?:common\s+|diluted\s+|basic\s+)?share\b", re.I)
+
+
+def _stem(word: str) -> str:
+    """Enough of a stem that a row label and a claim agree: "operating", "operations" -> "operat"."""
+    if word.endswith("ies") and len(word) >= 7:
+        return word[:-3] + "y"
+    return next((word[:-len(s)] for s in SUFFIXES if word.endswith(s) and len(word) - len(s) >= 4), word)
+
+
+def _stems(text: str) -> set[str]:
+    return {_stem(SYNONYMS.get(w, w)) for w in _named(_PER_SHARE.sub("pershare", text))}
+
+
+# Words every row label and claim in a filing shares, which say nothing about what a number is.
+GENERIC = {_stem(w) for w in (
+    "total", "net", "period", "other", "end", "ended", "beginning", "three", "six", "nine", "twelve", "month", "year",
+    "ago", "prior", "current", "compared", "million", "thousand", "billion", "percent", "quarter", "per", "including",
+    "related", "data", "except", "change", "amount", "variance", "difference", "growth", "value", "metric", "actual",
+    "reported", "yoy")}
+
+
+def _subject(column: str) -> set[str]:
+    """The words of a column's headers that name what it holds, not when."""
+    words = {w for w in _named(_PER_SHARE.sub("pershare", column)) if not numbers.PERIOD_HEADER.search(w)
+             and not re.fullmatch(numbers.MONTH, w, re.I)}
+    return {_stem(SYNONYMS.get(w, w)) for w in words}
+
+
+def same_period(column: str, claim: str) -> bool:
+    """A six-month column states nothing about a quarter or a year; a year's column nothing about a
+    quarter or a half unless the claim names the year too; a quarter's nothing about the half."""
+    if HALF_PERIOD.search(column):
+        return bool(HALF_PERIOD.search(claim))
+    if ANNUAL_PERIOD.search(column) and (QUARTER_PERIOD.search(claim) or HALF_PERIOD.search(claim)):
+        return bool(ANNUAL_PERIOD.search(claim))
+    if QUARTER_PERIOD.search(column) and (HALF_PERIOD.search(claim) or ANNUAL_PERIOD.search(claim)):
+        return bool(QUARTER_PERIOD.search(claim))
+    return True
+
+
+def fits(cell: Cell, claim: str) -> bool:
+    """A table number is about the claim only if its row label or column header shares a word with
+    it, in its period; a word every filing uses ("total", "net") counts only in a label that has no
+    other ("Other, net"). A cell with no words to go by is judged by its period alone."""
+    names = _stems(cell.label) | _subject(cell.column)
+    if not names:
+        return same_period(cell.column, claim)
+    return bool((names - GENERIC or names) & _stems(claim)) and same_period(cell.column, claim)
+
 
 @dataclass
 class Passage:
@@ -77,23 +212,55 @@ class Passage:
     unit: str = ""        # the currency and scale that chart names for all of them ("$B")
     quantities: list[numbers.Quantity] = field(default_factory=list)
     derived: list[numbers.Quantity] = field(default_factory=list)
+    cells: list[Cell] = field(default_factory=list)
+    # Per derived value: the cells it came from, or the sentence when it came from prose.
+    derived_from: list[list[Cell] | str] = field(default_factory=list)
 
     def __post_init__(self):
         self.quantities = numbers.find(self.text, self.plain, self.unit)
         if self.kind == "code":
             return  # pairs of numbers in code license no arithmetic
         self.quantities += numbers.scaled(self.text, self.quantities)
+        self.cells = table_cells(self.text)
+        offset = 0
         for sentence in numbers.sentences(self.text):
-            self.derived += numbers.derived(numbers.find(sentence, self.plain, self.unit))
+            at = self.text.find(sentence, offset)
+            offset = at + len(sentence)
+            for d in numbers.derived(numbers.find(sentence, self.plain, self.unit)):
+                cells = [c for e in d.operands if (c := self.cell(at + e - 1)) is not None]
+                if len(cells) < len(d.operands) and "|" in sentence:
+                    continue  # a table licenses arithmetic only between its statement cells
+                self.derived.append(d)
+                self.derived_from.append(cells if len(cells) == len(d.operands) else sentence)
+
+    @cached_property
+    def _starts(self) -> list[int]:
+        return [c.start for c in self.cells]
+
+    def cell(self, at: int) -> Cell | None:
+        """The table cell holding position `at`, if any."""
+        i = bisect.bisect_right(self._starts, at) - 1
+        return self.cells[i] if i >= 0 and at < self.cells[i].end else None
+
+    def can_derive(self, index: int, claim_text: str) -> bool:
+        """Whether derived value `index` may support a claim: from table cells, each must fit it;
+        from prose, the sentence must cover the claim's period."""
+        source = self.derived_from[index]
+        if isinstance(source, str):
+            return same_period(source, claim_text)
+        return all(fits(c, claim_text) for c in source)
 
     @cached_property
     def quote_key(self) -> str:
         return _quote_key(self.text)
 
     def can_support(self, quantity: numbers.Quantity, claim_text: str) -> bool:
-        """Whether this passage's `quantity` may support a claim. In a named file, always;
-        in code, or anything read from a directory, only if the number's context -- its
-        line in code and tables, its sentence in prose -- shares a word with the claim."""
+        """Whether this passage's `quantity` may support a claim. In a table row, only if the
+        row's label shares a word with the claim and its column's period is the claim's. Else, in
+        a named file, always; in code, or anything read from a directory, only if the number's
+        context -- its line in code and tables, its sentence in prose -- shares a word with the claim."""
+        if (cell := self.cell(quantity.end - 1)) is not None and not fits(cell, claim_text):
+            return False
         if not (self.strict or self.kind == "code"):
             return True
         return bool(_named(self._context(quantity)) & _named(claim_text))

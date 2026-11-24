@@ -1,0 +1,417 @@
+EX-99.1 2 ex991pressrelease-q22025ea.htm EX-99.1 BEYOND MEAT EARNINGS RELEASE DATED AUGUST 8, 2025
+
+Document
+
+Exhibit 99.1
+
+For immediate release
+
+Beyond Meat® Reports Second Quarter 2025 Financial Results
+
+EL SEGUNDO, Calif. — August 8, 2025 (GLOBE NEWSWIRE)—Beyond Meat, Inc. (NASDAQ: BYND) (“Beyond Meat” or “the Company”), a leader in plant-based meat, today issued a revised press release reporting financial results for its second quarter ended June 28, 2025. The purpose of the revised press release is solely to correct the reported amount of “Selling, general and administrative expenses”, and the resulting effects of such change on the Company’s Condensed Consolidated Statements of Operations, Balance Sheets and Statements of Cash Flows. The revised release reads as follows:
+
+Second Quarter 2025 Financial Highlights1
+
+•Net revenues were $75.0 million, a decrease of 19.6% year-over-year.
+
+•Gross profit was $8.6 million, or gross margin of 11.5%, compared to gross profit of $13.7 million, or gross margin of 14.7%, in the year-ago period.
+
+◦Gross profit and gross margin included $1.7 million in expenses related to the suspension and substantial cessation of the Company’s operational activities in China.
+
+•Loss from operations was $34.9 million, or operating margin of -46.6%, compared to loss from operations of $33.9 million, or operating margin of -36.4%, in the year-ago period.
+
+◦Loss from operations included the following charges recorded in operating expenses: $2.5 million in incremental legal expenses associated with arbitration proceedings related to a previously-disclosed contractual dispute with a former co-manufacturer; $0.6
+
+1 This release includes references to non-GAAP financial measures. Refer to “Non-GAAP Financial Measures” later in this release for the definitions of the non-GAAP financial measures presented and a reconciliation of these measures to their closest comparable GAAP measures.
+
+million in certain non-routine SG&A expenses; and $0.5 million in costs related to a partial lease termination of a portion of the Company’s campus headquarters building in El Segundo, California (the “Campus Headquarters”).
+
+•Net loss was $29.2 million, or $0.38 per common share, compared to net loss of $34.5 million, or $0.53 per common share, in the year-ago period.
+
+◦Net loss in aggregate included $5.3 million in expenses related to the suspension and substantial cessation of the Company’s operational activities in China, incremental arbitration-related legal expenses, certain non-routine SG&A expenses, and costs related to a partial lease termination of a portion of the Company’s Campus Headquarters.
+
+•Adjusted EBITDA was a loss of $22.1 million, or -29.5% of net revenues, compared to an Adjusted EBITDA loss of $23.0 million, or -24.7% of net revenues, in the year-ago period.
+
+Beyond Meat President and CEO Ethan Brown commented, “We are disappointed with our second quarter results, which primarily reflect ongoing softness in the plant-based meat category, particularly in the U.S. retail channel and certain international foodservice markets. We are responding by accelerating our transformation activities, including more rapidly and aggressively reducing our operating expenses to fit anticipated near term revenues; prioritizing increased distribution of our core product lines; and investing in margin expansion initiatives across these core products.”
+
+Brown continued, “To this end, we are expanding our partnership with AlixPartners, including welcoming John Boken to the team as interim Chief Transformation Officer to support enterprise-wide implementation of these objectives. Finally, even as we navigate this difficult operating environment, we continue to pursue our goal of strengthening our balance sheet for the longer term.”
+
+Reduction-in-Force
+
+The Company is implementing certain organizational changes and further cost-reduction measures intended to strengthen its financial profile and support its long-term objectives. On August 6, 2025, management approved a plan to reduce the Company’s current workforce in North America by approximately 44 employees, representing approximately 6% of the Company’s total global workforce
+
+(the “RIF”). This decision was based on cost-reduction initiatives intended to reduce cost of goods sold and operating expenses.
+
+The Company estimates that it will incur one-time cash charges of approximately $0.8 million to $1.3 million in connection with the RIF, primarily consisting of severance payments, employee benefits and related costs, in all cases, provided to departing employees. The Company expects that the majority of these charges will be incurred in the third quarter of 2025, subject to applicable legal requirements, which may delay the time these charges will be incurred beyond the end of the third quarter of 2025. The calculation of the charges the Company estimates it will incur are subject to uncertainties and based on a number of assumptions, including applicable legal requirements; the actual charges incurred may differ from the estimate disclosed above.
+
+In aggregate, over the next twelve months, the RIF is expected to result in approximately $5.0 million to $6.0 million in cash compensation expense savings, and an additional approximately $0.5 million to $1.0 million in non-cash savings related to previously granted, unvested stock-based compensation that would have vested over the next twelve months.
+
+Appointment of interim Chief Transformation Officer
+
+On August 6, 2025, as disclosed in a Current Report on Form 8-K filed by the Company today, John Boken was appointed as the Company’s interim Chief Transformation Officer. Mr. Boken has been a Partner and Managing Director in the Turnaround and Restructuring Services practice at AlixPartners, LLP, an international consultancy firm, for over 6 years and has over 35 years of interim management, corporate turnaround and restructuring experience.
+
+Second Quarter 2025
+
+Net revenues decreased 19.6% to $75.0 million in the second quarter of 2025, compared to $93.2 million in the year-ago period. The decrease in net revenues was primarily driven by an 18.9% decrease in volume of products sold, and a 0.9% decrease in net revenue per pound. The decrease in volume of products sold was primarily driven by weak category demand and reduced points of distribution in the U.S. retail channel, and lower sales of burger products to Quick Service Restaurant
+
+(“QSR”) customers in the international foodservice channel. The decrease in net revenue per pound was primarily driven by higher trade discounts and changes in product sales mix, partially offset by favorable changes in foreign currency exchange rates and price increases of certain of our products.
+
+U.S. retail channel net revenues decreased 26.7% to $32.9 million in the second quarter of 2025, compared to $44.9 million in the year-ago period. The decrease in net revenues was primarily driven by a 24.2% decrease in volume of products sold, and a 3.2% decrease in net revenue per pound. The decrease in volume of products sold was primarily driven by weak category demand and reduced points of distribution. The decrease in net revenue per pound was primarily driven by higher trade discounts, partially offset by changes in product sales mix and price increases of certain of our products. U.S. retail channel net revenues included $0.1 million from ingredient sales in the quarter, compared to $0.8 million from ingredient sales in the year-ago period.
+
+U.S. foodservice channel net revenues increased 6.8% to $11.1 million in the second quarter of 2025, compared to $10.4 million in the year-ago period. The increase in net revenues was primarily driven by a 4.4% increase in net revenue per pound, and a 2.3% increase in volume of products sold. The increase in net revenue per pound was primarily driven by price increases of certain of our products and changes in product sales mix, partially offset by higher trade discounts. The increase in volume of products sold was primarily driven by higher sales of the Company’s ground beef and dinner sausage products.
+
+International retail channel net revenues decreased 9.8% to $15.9 million in the second quarter of 2025, compared to $17.6 million in the year-ago period. The decrease in net revenues was primarily driven by a 13.1% decrease in volume of products sold, partially offset by a 3.9% increase in net revenue per pound. The decrease in volume of products sold was primarily driven by lower sales of the Company’s burger, dinner sausage and ground beef products in Canada and reduced burger sales in the EU. The increase in net revenue per pound was primarily driven by favorable changes in foreign currency exchange rates, changes in product sales mix and price increases of certain of our products, partially offset by higher trade discounts.
+
+International foodservice channel net revenues decreased 25.8% to $15.1 million in the second quarter of 2025, compared to $20.4 million in the year-ago period. The decrease in net revenues was primarily
+
+driven by a 21.6% decrease in volume of products sold, and a 5.3% decrease in net revenue per pound. The decrease in volume of products sold was primarily due to lower sales of burger products to certain QSR customers. The decrease in net revenue per pound was primarily driven by changes in product sales mix, partially offset by lower trade discounts, favorable changes in foreign currency exchange rates and price increases of certain of our products.
+
+Net revenues by channel (unaudited):
+
+The following tables present the Company’s net revenues by channel for the periods presented:
+
+Three Months Ended | Change
+(in thousands) | June 28, 2025 | June 29, 2024 | Amount%
+U.S.:
+Retail | $ 32,909 | $ 44,869 | $ (11,960) | (26.7) %
+Foodservice | 11,055 | 10,350 | 705 | 6.8 %
+U.S. net revenues | 43,964 | 55,219 | (11,255) | (20.4) %
+International:
+Retail | 15,867 | 17,585 | (1,718) | (9.8) %
+Foodservice | 15,127 | 20,381 | (5,254) | (25.8) %
+International net revenues | 30,994 | 37,966 | (6,972) | (18.4) %
+Net revenues | $ 74,958 | $ 93,185 | $ (18,227) | (19.6) %
+Six Months Ended | Change
+(in thousands) | June 28, 2025 | June 29, 2024 | Amount%
+U.S.:
+Retail | $ 64,269 | $ 81,957 | $ (17,688) | (21.6) %
+Foodservice | 20,468 | 22,654 | (2,186) | (9.6) %
+U.S. net revenues | 84,737 | 104,611 | (19,874) | (19.0) %
+International:
+Retail | 28,549 | 30,163 | (1,614) | (5.4) %
+Foodservice | 30,403 | 34,014 | (3,611) | (10.6) %
+International net revenues | 58,952 | 64,177 | (5,225) | (8.1) %
+Net revenues | $ 143,689 | $ 168,788 | $ (25,099) | (14.9) %
+Volume of products sold by channel (unaudited):
+The following table presents consolidated volume of the Company’s products sold in pounds for the periods presented:
+Three Months Ended | Change | Six Months Ended | Change
+(in thousands) | June 28, 2025 | June 29, 2024 | Amount% | June 28, 2025 | June 29, 2024 | Amount%
+U.S.:
+Retail | 6,136 | 8,099 | $ (1,963) | (24.2) % | 11,876 | 15,569 | (3,693) | (23.7) %
+Foodservice | 1,809 | 1,768 | 41 | 2.3 % | 3,387 | 3,790 | (403) | (10.6) %
+International:
+Retail | 3,410 | 3,926 | $ (516) | (13.1) % | 6,074 | 6,840 | (766) | (11.2) %
+Foodservice | 4,635 | 5,912 | $ (1,277) | (21.6) % | 9,359 | 10,075 | (716) | (7.1) %
+Volume of products sold | 15,990 | 19,705 | (3,715) | (18.9) % | 30,696 | 36,274 | (5,578) | (15.4) %
+
+Gross profit in the second quarter of 2025 was $8.6 million, or gross margin of 11.5%, compared to gross profit of $13.7 million, or gross margin of 14.7%, in the year-ago period. Gross profit and gross margin in the second quarter of 2025 included $1.7 million in expenses related to the suspension and substantial cessation of the Company’s operational activities in China. Additionally, gross profit and gross margin in the second quarter of 2025 were negatively impacted by increased cost of goods sold per pound, primarily reflecting decreased volume of products sold, and decreased net revenue per pound. The increase in cost of goods sold per pound primarily reflected higher inventory provision and higher materials expenses, partially offset by lower manufacturing expenses, including depreciation, and lower logistics expenses.
+
+Operating expenses were $43.5 million in the second quarter of 2025, compared to $47.6 million in the year-ago period. Operating expenses in the second quarter of 2025 included $2.5 million in incremental legal expenses associated with arbitration proceedings related to a contractual dispute with a former co-manufacturer, $0.6 million in certain non-routine SG&A expenses and $0.5 million in costs related to the partial lease termination of a portion of the Company’s Campus Headquarters. Excluding these items, the decrease in operating expenses compared to the second quarter of 2024 was primarily driven by reduced marketing expenses and reduced selling expenses.
+
+Loss from operations in the second quarter of 2025 was $34.9 million, compared to $33.9 million in the year-ago period. The increase in loss from operations was driven by the reduction in gross profit, partially offset by the reduction in operating expenses.
+
+The following table summarizes certain charges recorded in the Company’s consolidated statement of operations for the second quarter of 2025 (unaudited):
+
+(in thousands)
+Charges recorded in cost of goods sold
+Expenses related to suspension and substantial cessation of operational activities in China | $ 1,703
+Total charges recorded in cost of goods sold | $ 1,703
+Charges recorded in operating expenses
+Incremental legal expenses related to contractual dispute with former co-manufacturer | $ 2,530
+Certain non-routine SG&A expenses | $ 559
+Costs related to partial lease termination | $ 499
+Expenses related to suspension and substantial cessation of operational activities in China | $ 36
+Total charges recorded in operating expenses | $ 3,624
+Total | $ 5,327
+
+Total other income, net, was $5.7 million in the second quarter of 2025, compared to total other expense, net, of $0.6 million in the year-ago period. The increase in total other income, net, was primarily due to an increase in net realized and unrealized foreign currency transaction gains.
+
+Net loss was $29.2 million in the second quarter of 2025, compared to $34.5 million in the year-ago period. Net loss per common share was $0.38 in the second quarter of 2025, compared to $0.53 in the year-ago period. The reduction in net loss in the second quarter of 2025 was primarily driven by the increase in total other income, net, partially offset by the increase in loss from operations.
+
+Adjusted EBITDA was a loss of $22.1 million, or -29.5% of net revenues, in the second quarter of 2025, compared to an Adjusted EBITDA loss of $23.0 million, or -24.7% of net revenues, in the year-ago period.
+
+Balance Sheet and Cash Flow Highlights
+
+The Company’s cash and cash equivalents balance, including restricted cash, was $117.3 million and total outstanding debt was $1.2 billion as of June 28, 2025. Net cash used in operating activities was $59.4 million in the six months ended June 28, 2025, compared to $47.8 million in the year-ago period. Capital expenditures totaled $6.4 million in the six months ended June 28, 2025, compared to $2.5 million in the year-ago period. Net cash used in investing activities was $6.1 million in the six months ended June 28, 2025, compared to net cash provided by investing activities of $1.2 million in the year-ago period. Net cash provided by financing activities was $33.6 million in the six months ended June 28, 2025, compared to net cash used in financing activities of $1.0 million in the year-ago period. Net cash provided by financing activities in the six months ended June 28, 2025 included an initial draw in the amount of $40.0 million from the Company’s Delayed Draw Term Loan Facility with Unprocessed Foods, LLC, partially offset by related debt issuance costs.
+
+2025 Outlook
+
+The Company continues to experience an elevated level of uncertainty within its operating environment, which has, and management believes could continue to have, unforeseen impacts on the Company’s actual realized results. In light of this uncertainty, as previously announced, the Company is not providing full year guidance and is limiting its revised outlook to the following:
+
+•In the third quarter of 2025, net revenues are expected to be in the range of $68 million to $73 million.
+
+About Beyond Meat
+
+Beyond Meat, Inc. (NASDAQ: BYND) is a leading plant-based meat company offering a portfolio of revolutionary plant-based meats made from simple ingredients without GMOs, no added hormones or antibiotics, and 0 mg of cholesterol per serving. Founded in 2009, Beyond Meat products are designed to have the same taste and texture as animal-based meat while being better for people and the planet. Beyond Meat’s brand promise, Eat What You Love®, represents a strong belief that there is a better way to feed our future and that the positive choices we all make, no matter how small, can have a great impact on our personal health and the health of our planet. By shifting from animal-based meat to plant-based protein, we can positively impact four growing global issues: human health, climate change, constraints on natural resources and animal welfare. Visit www.BeyondMeat.com and follow @BeyondMeat on Facebook, Instagram, Threads and LinkedIn.
+
+Forward-Looking Statements
+
+Certain statements in this release constitute “forward-looking statements" within the meaning of the federal securities laws, including statements related to the Company’s expectations with respect to its third quarter 2025 outlook.
+
+Forward-looking statements are based on management's current opinions, expectations, beliefs, plans, objectives, assumptions and projections regarding financial performance, prospects, future events and future results, including ongoing uncertainty related to macroeconomic issues, including high inflation and interest rates, prolonged, weakening demand in the plant-based meat category, ongoing concerns about the likelihood of a recession and increased competition, among other matters, and involve known and unknown risks that are difficult to predict. In some cases, you can identify forward-looking statements by the use of words such as “may,” “could,” “expect,” “intend,” “plan,” “seek,” “anticipate,” “believe,” “estimate,” “project,” “predict,” “outlook,” “potential,” “continue,” “likely,” “will,” “would” and variations of these terms and similar expressions, or the negative of these terms or similar expressions. These forward-looking statements are only predictions, not historical fact, and involve certain risks and uncertainties, as well as assumptions. Forward-looking statements should not be read as a guarantee of future performance or results, and will not necessarily be accurate indications of the times at, or by which or whether, such performance or results will be achieved. Actual results, levels of activity, performance, achievements and events could differ materially from those stated, anticipated or implied by such forward-looking statements. While Beyond Meat believes that its assumptions are reasonable,
+
+it is very difficult to predict the impact of known factors and, of course, it is impossible to anticipate all factors that could affect actual results. There are many risks and uncertainties that could cause actual results to differ materially from forward-looking statements made herein including, but not limited to, the sufficiency of our cash and cash equivalents to meet our liquidity needs, including estimates of our expenses, future revenues, capital expenditures and capital requirements; our ability to obtain additional equity or debt financing, the terms of any such financing, and our ability to bolster and restructure our balance sheet; the availability of our “at the market” program; risks related to our significant debt, including our ability to repay our indebtedness, limitations on our cash flows from operating activities and our ability to satisfy our obligations under our convertible senior notes (the “Notes”) and under our Loan and Security Agreement dated as of May 7, 2025 by and between the Company and Unprocessed Foods, LLC, an affiliate of Ahimsa Foundation, as lender (the “Loan and Security Agreement”); our ability to refinance the Notes; our ability to raise the funds necessary to repurchase the Notes for cash, under certain circumstances, or to pay any cash amounts due upon conversion, including possible tax liabilities arising from potential cancellation of indebtedness income; the potential impact on future availability of the Company’s accumulated net operating losses arising from any potential exchange of a portion of the outstanding Notes; the significant dilution to existing stockholders that will result if we exchange any portion of our outstanding Notes for equity or if the lenders under the Loan and Security Agreement exercise their related warrants to purchase shares of our common stock; provisions in the indenture governing the Notes and the Loan and Security Agreement delaying or preventing an otherwise beneficial takeover of us; and any adverse impact on our reported financial condition and results from the accounting methods for the Notes; a further decrease in demand, and the underlying factors negatively impacting demand, in the plant-based meat category, including the exacerbation of weakness in the category by macroeconomic trends; the impact of general economic conditions in the U.S. and international markets on us, our customers, our suppliers, our vendors and consumers, including concerns related to high inflation, geopolitical and economic uncertainty and instability and a potential recession, and the effects of those conditions on consumer spending; the impact of adverse and uncertain political conditions in the U.S. and international markets, such as greater restrictions on free trade through significant increases in tariffs on raw materials, ingredients, finished goods and other products and supplies imported into the United States and increased uncertainty surrounding international trade policy and regulations, trade wars, including through the implementation of retaliatory tariffs or related counter-measures, and the negative effects of anti-American sentiment as well as the impact of inflation and higher interest rates across the
+
+economy and on consumer behavior, including higher food, grocery, raw materials, transportation, energy, labor and fuel costs; risks and uncertainties related to identifying and executing certain cost-reduction initiatives, cost structure improvements, workforce reductions and executive leadership changes, and the timing and success of reducing operating expenses and achieving and/or sustaining our profitability and financial performance objectives; the timing and success of narrowing our commercial focus to certain anticipated growth opportunities; accelerating activities that prioritize gross margin expansion and cash generation, including as part of our review of our global operations initiated in November 2023 (“Global Operations Review”); changes to our pricing architecture within certain channels; cash-accretive inventory reduction initiatives; and further cost-reduction initiatives; our ability to successfully execute our Global Operations Review and any resulting strategic plans, including the exit or discontinuation of select product lines; the impact of non-cash charges such as provision for excess and obsolete inventory and potential additional impairment charges, write-offs, disposals and accelerated depreciation of fixed assets, and losses on sale and write-down of fixed assets; further optimization of our manufacturing capacity and real estate footprint; planned and future reductions in our workforce; and the suspension and substantial cessation of our operational activities in China in the first half of 2025; matters relating to our Campus Headquarters including, without limitation, the ability to meet our obligations under our Campus Headquarters lease (“Campus Lease”), the timing of occupancy and completion of the build-out of our remaining space, any cost overruns or delays, the impact of workforce reductions or other cost-reduction initiatives on our space demands, the impact of the surrender of a portion of the existing premises under the Campus Lease; the impact of the sublease of a portion of the existing premises under the Campus Lease, and the timing and success of surrendering, subleasing, assigning or otherwise transferring the remaining excess space or negotiating additional partial lease terminations at our Campus Headquarters on terms advantageous to us or at all, including any potential additional impairment charges that may result; our ability to meet our obligations under leases for our corporate offices, manufacturing facilities and warehouses, or risks related to excess space capacity under our leases due to workforce reductions or other cost-reduction initiatives; reduced consumer confidence and changes in consumer spending, including spending to purchase our products, and negative trends in consumer purchasing patterns due to levels of consumers’ disposable income, credit availability and debt levels, and economic conditions, including due to potential recessionary and inflationary pressures; our inability to properly manage and ultimately sell our inventory in a timely manner, which has in the past and could in the future require us to sell our products through liquidation channels at lower prices, write-down or write-off obsolete inventory, or
+
+increase inventory provision; any future impairment charges, including due to any future changes in estimates, judgments or assumptions, failure to achieve forecasted operating results, weakness in the economic environment, changes in market conditions, declines in our market capitalization, failure to sublease, assign or otherwise transfer the remaining excess space or negotiate additional partial lease terminations at our Campus Headquarters on terms advantageous to us or at all, and the suspension and substantial cessation of our operational activities in China in the first half of 2025; our ability to accurately predict consumer taste preferences, trends and demand and successfully innovate, introduce and commercialize new products, such as our Beyond Ground, Beyond Steak Filet, Beyond Chicken Pieces, Beyond Sun Sausage and Beyond Steak lines, and improve existing products such as our Beyond IV platform, including in new geographic markets; the effects of competitive activity from our market competitors and new market entrants; our ability to protect our brand against misinformation about our products and the plant-based meat category, real or perceived quality or health issues with our products, marketing campaigns aimed at generating negative publicity regarding our products and the plant-based meat category, including regarding the nutritional value of our products, and other issues that could adversely affect our brand and reputation; disruption to, and the impact of uncertainty in, our domestic and international supply chain, including labor shortages and disruption, shipping delays and disruption, the impact of tariffs on raw materials, ingredients, finished goods and other products and supplies imported into the U.S., and the impact of cyber incidents at suppliers and vendors; our ability to streamline operations and improve cost efficiencies, which could result in the contraction of our business and the continued implementation of significant cost cutting measures such as further downsizing and exiting certain operations, including product lines, domestically and/or abroad; the impact of uncertainty as a result of doing business internationally, including as a result of the suspension and substantial cessation of our operational activities in China in the first half of 2025; the volatility of or inability to access the capital markets, including due to macroeconomic factors, geopolitical tensions or the outbreak of hostilities or war—for example, the war in Ukraine and the conflict in Israel, Gaza and surrounding areas; changes in the retail landscape, including our ability to maintain and expand our distribution footprint, the timing, success and level of trade and promotion discounts, our ability to maintain and grow market share and increase household penetration, repeat purchases, buying rates (amount spent per buyer) and purchase frequency, our ability to maintain and increase sales velocity of our products, and the timing and success of planned new products or recently launched products, including Beyond Ground, Beyond Steak Filet, Beyond Chicken Pieces, Beyond Steak, Beyond IV and Beyond Sun Sausage; changes in the foodservice
+
+landscape, including the timing, success and level of marketing and other financial incentives to assist in the promotion of our products, our ability to maintain and grow market share and attract and retain new foodservice customers or retain existing foodservice customers, and our ability to introduce and sustain offering of our products on menus; the timing and success of distribution expansion and new product introductions, including the timing and success of planned new products or recently launched products, such as Beyond Ground, Beyond Steak Filet, Beyond Chicken Pieces, Beyond Steak, Beyond IV and Beyond Sun Sausage, in increasing revenues and market share; our ability to differentiate and continuously create innovative products, respond to competitive innovation and achieve speed-to-market, including the timing and success of planned new products or recently launched products such as Beyond Ground, Beyond Steak Filet, Beyond Chicken Pieces, Beyond Steak, Beyond IV and Beyond Sun Sausage; the timing and success of strategic Quick Service Restaurant (“QSR”) partnership launches and limited time offerings resulting in permanent menu items and our ability to attract and retain QSR and other strategic customers; the outcomes of, and costs related to, legal or administrative proceedings, or new legal or administrative proceedings filed against us; foreign currency exchange rate fluctuations; the effectiveness of our business systems and processes; our estimates of the size of our market opportunities and ability to accurately forecast market growth; our ability to effectively optimize our manufacturing and production capacity, and real estate footprint, including consolidating manufacturing facilities and production lines, exiting co-manufacturing arrangements or entering into new arrangements under terms that are ultimately beneficial to us and effectively managing capacity for specific products with shifts in demand; risks associated with underutilization of capacity which have in the past and could in the future give rise to increased cost of goods sold per unit, underutilization fees, termination fees and other costs to exit certain supply chain arrangements and product lines, and/or the write-down or write-off of certain equipment and other fixed assets and impairment charges, all of which could negatively impact gross margin; our ability to accurately forecast our future results of operations and financial goals or targets, including as a result of fluctuations in demand for our products and in the plant-based meat category generally, increased competition, and the impact of broader macroeconomic conditions and market uncertainty; our ability to accurately forecast demand for our products and manage our inventory, including the impact of customer orders ahead of holidays and the timing of customer promotions, shelf reset activities, and planned price increases in certain channels as a result of tariffs or otherwise; customer and distributor changes and buying patterns, such as reductions in targeted inventory levels; and supply chain and labor disruptions, including due to the impact of cyber incidents at suppliers and
+
+vendors; our operational effectiveness and ability to fulfill orders in full and on time; variations in product selling prices and costs, the timing and success of changes to our pricing architecture within certain channels, our ability to pass on price increases in full or at all, including due to the impact of tariffs and macroeconomic conditions, and the mix of products sold; our ability to successfully enter new geographic markets, manage our international business and comply with any applicable laws and regulations, including risks associated with doing business in foreign countries, and our ability to comply with the U.S. Foreign Corrupt Practices Act or other anti-corruption laws; the effects of global outbreaks of pandemics (such as the COVID-19 pandemic), epidemics or other public health crises, or fear of such crises; the success of our marketing initiatives and the ability to maintain and grow our brand awareness, maintain, protect and enhance our brand, or rebrand altogether, attract and retain new customers and maintain and grow our market share, particularly while we are seeking to reduce our operating expenses; our ability to attract, maintain and effectively expand our relationships with key strategic foodservice partners; our ability to attract and retain our suppliers, distributors, vendors, co-manufacturers and customers; our ability to procure sufficient high-quality raw materials at competitive prices to manufacture our products; the availability of pea and other proteins and avocado oil that meet our standards; our ability to diversify the protein sources and avocado oil sources used for our products; our ability to successfully execute our strategic initiatives; the volatility associated with ingredient, packaging, transportation and other input costs, including due to the impact of tariffs; our ability to keep pace with technological changes impacting the development of our products and implementation of our business needs; significant disruption in, or breach in security of our or our suppliers’ or vendors’ information technology systems, including any inability to detect or timely report any cybersecurity incidents, and resultant interruptions in service and any related impact on our reputation, including data privacy, and any potential impact on our supply chain, including on customer demand, order fulfillment and lost sales, and the resulting timing and/or amount of net revenues recognized; the ability of our transportation providers to ship and deliver our products in a timely and cost-effective manner; senior management and key personnel changes, the attraction, training and retention of qualified employees and key personnel, and our ability to maintain our company culture; the effects of organizational changes including reductions-in-force and realignment of reporting structures; risks related to use of a professional employer organization to administer human resources, payroll and employee benefits functions for certain of our international employees, and use of certain third party service providers for the performance of several business operations including payroll and human capital management services; the impact of potential workplace hazards; the effects of natural
+
+or man-made catastrophic or severe weather events, including events brought on by climate change, particularly involving our or any of our co-manufacturers’ manufacturing facilities, our suppliers’ facilities or any other vital aspects of our supply chain; the effectiveness of our internal controls; accounting estimates based on judgment and assumptions that may differ from actual results; changes in laws and government regulation, and their enforcement, affecting our business, including the U.S. Food and Drug Administration and the U.S. Federal Trade Commission governmental regulation, and state, local and foreign regulation; new or pending legislation, or changes in laws, regulations or policies of governmental agencies or regulators, both in the U.S. and abroad, affecting plant-based meat, the labeling, packaging or naming of our products, including requirements regarding nutrient content claims, or our brand name or logo; the failure of acquisitions and other investments to be efficiently integrated and produce the results we anticipate; risks inherent in investment in real estate; adverse developments affecting the financial services industry; the financial condition of, and our relationships with our suppliers, vendors, co-manufacturers, distributors, retailers and foodservice customers, and their future decisions regarding their relationships with us; our ability and the ability of our suppliers, vendors and co-manufacturers to comply with food safety, environmental or other laws or regulations and the impact of any non-compliance on our operations, brand reputation and ability to fulfill orders in full and on time; seasonality, including increased levels of grilling activity and higher levels of purchasing by customers ahead of holidays, customer shelf reset activity and the timing of product restocking by our retail customers; the impact of increased scrutiny from a variety of stakeholders, institutional investors and governmental bodies on environmental, social and governance practices; our, our suppliers’ and our co-manufacturers’ ability to protect our proprietary technology, intellectual property and trade secrets adequately; the impact of changes in tax laws; and the risks discussed under the heading “Risk Factors” in the Company’s Annual Report on Form 10-K for the year ended December 31, 2024 filed with the Securities and Exchange Commission (the “SEC”) on March 5, 2025, the Company’s Quarterly Report on Form 10-Q for the fiscal quarter ended March 29, 2025 filed with the SEC on May 8, 2025, the Company’s Quarterly Report on Form 10-Q for the fiscal quarter ended June 28, 2025 to be filed with the SEC as well as other factors described from time to time in the Company's filings with the SEC. All forward-looking statements attributable to us or persons acting on our behalf are expressly qualified in their entirety by the cautionary statements set forth above. Such forward-looking statements are made only as of the date of this release. Beyond Meat undertakes no obligation to publicly update or revise any forward-looking statement because of new information, future events, changes in assumptions or otherwise, except to the extent required by applicable laws. If we do
+
+update one or more forward-looking statements, no inference should be made that we will make additional updates with respect to those or other forward-looking statements.
+
+Non-GAAP Financial Measures
+
+The Company refers to certain financial measures that are not recognized under U.S. generally accepted accounting principles (GAAP) in this press release, including: Adjusted loss from operations, Adjusted operating margin, Adjusted net loss, Adjusted net loss per diluted common share, Adjusted EBITDA and Adjusted EBITDA as a % of net revenues. See “Non-GAAP Financial Measures” below for additional information and reconciliations of such non-GAAP financial measures.
+
+Availability of Information on Beyond Meat’s Website and Social Media Channels
+
+Investors and others should note that Beyond Meat routinely announces material information to investors and the marketplace using SEC filings, press releases, public conference calls, webcasts and the Beyond Meat Investor Relations website. We also intend to use certain social media channels as a means of disclosing information about us and our products to consumers, our customers, investors and the public (e.g., @BeyondMeat on Facebook, Instagram, Threads and LinkedIn. The information posted on social media channels is not incorporated by reference in this press release or in any other report or document we file with the SEC. While not all of the information that the Company posts to the Beyond Meat Investor Relations website or to social media accounts is of a material nature, some information could be deemed to be material. Accordingly, the Company encourages investors, the media and others interested in Beyond Meat to review the information that it shares at the “Investors” link located at the bottom of the Company’s webpage at https://investors.beyondmeat.com/investor-relations and to sign up for and regularly follow the Company’s social media accounts. Users may automatically receive email alerts and other information about the Company when enrolling an email address by visiting “Request Email Alerts” in the “Investors” section of Beyond Meat’s website at https://investors.beyondmeat.com/investor-relations.
+
+Contacts
+
+Media:
+
+Shira Zackai
+
+shira.zackai@beyondmeat.com
+
+Investors:
+
+Raphael Gross
+
+beyondmeat@icrinc.com
+
+BEYOND MEAT, INC. AND SUBSIDIARIES
+
+Condensed Consolidated Statements of Operations
+
+(In thousands, except share and per share data)
+(unaudited)
+Three Months Ended | Six Months Ended
+June 28, 2025 | June 29, 2024 | June 28, 2025 | June 29, 2024
+Net revenues | $ 74,958 | $ 93,185 | $ 143,689 | $ 168,788
+Cost of goods sold | 66,367 | 79,468 | 136,163 | 151,403
+Gross profit | 8,591 | 13,717 | 7,526 | 17,385
+Research and development expenses | 5,807 | 5,485 | 13,269 | 15,345
+Selling, general and administrative expenses | 37,696 | 42,163 | 85,368 | 89,445
+Total operating expenses | 43,503 | 47,648 | 98,637 | 104,790
+Loss from operations | (34,912) | (33,931) | (91,111) | (87,405)
+Other income (expense), net:
+Interest expense | (2,002) | (1,029) | (3,026) | (2,044)
+Other, net | 7,731 | 477 | 12,049 | 600
+Total other income (expense), net | 5,729 | (552) | 9,023 | (1,444)
+Loss before taxes | (29,183) | (34,483) | (82,088) | (88,849)
+Income tax benefit | — | (34) | — | (32)
+Equity in losses of unconsolidated joint venture | 59 | 30 | 70 | 23
+Net loss | $ (29,242) | $ (34,479) | $ (82,158) | $ (88,840)
+Net loss per share available to common stockholders—basic and diluted | $ (0.38) | $ (0.53) | $ (1.08) | $ (1.37)
+Weighted average common shares outstanding—basic and diluted | 76,491,594 | 64,901,584 | 76,348.524 | 64,797,245
+BEYOND MEAT, INC. AND SUBSIDIARIES
+Condensed Consolidated Balance Sheets
+(In thousands, except share and per share data)
+(unaudited)
+June 28, 2025 | December 31, 2024
+Assets
+Current assets:
+Cash and cash equivalents | $ 103,497 | $ 131,913
+Restricted cash, current | 1,172 | 1,041
+Accounts receivable, net | 37,338 | 26,862
+Inventory | 110,868 | 113,444
+Prepaid expenses and other current assets | 42,596 | 11,332
+Assets held for sale | 1,664 | 1,864
+Total current assets | 297,135 | 286,456
+Restricted cash, non-current | 12,600 | 12,600
+Property, plant and equipment, net | 320,988 | 184,887
+Operating lease right-of-use assets | 6,527 | 123,975
+Prepaid lease costs, non-current | 52,272 | 68,005
+Other non-current assets, net | 688 | 622
+Investment in unconsolidated joint venture | 1,531 | 1,601
+Total assets | $ 691,741 | $ 678,146
+Liabilities and stockholders’ deficit:
+Current liabilities:
+Accounts payable | $ 68,837 | $ 37,571
+Current portion of operating lease liabilities | 1,798 | 4,125
+Accrued expenses and other current liabilities | 15,618 | 11,656
+Accrued litigation settlement | — | 7,250
+Short-term finance lease liabilities | 3,934 | 851
+Total current liabilities | $ 90,187 | $ 61,453
+Long-term liabilities:
+Convertible senior notes, net | $ 1,143,443 | $ 1,141,476
+Delayed draw term loan, net | 30,525 | —
+Delayed draw term loan warrants | 20,143 | —
+Operating lease liabilities, net of current portion | 4,441 | 73,613
+Finance lease obligations and other long term liabilities | 80,025 | 2,812
+Total long-term liabilities | $ 1,278,577 | $ 1,217,901
+Commitments and contingencies
+Stockholders’ deficit:
+Preferred stock, par value $0.0001 per share—500,000 shares authorized, none issued and outstanding | $ — | $ —
+Common stock, par value $0.0001 per share—500,000,000 shares authorized; 76,597,624 shares and 76,065,969 shares issued and outstanding at June 28, 2025 and December 31, 2024, respectively | 8 | 8
+Additional paid-in capital | 653,855 | 644,004
+Accumulated deficit | (1,323,689) | (1,241,531)
+Accumulated other comprehensive loss | (7,197) | (3,689)
+Total stockholders’ deficit | $ (677,023) | $ (601,208)
+Total liabilities and stockholders’ deficit | $ 691,741 | $ 678,146
+BEYOND MEAT, INC. AND SUBSIDIARIES
+Condensed Consolidated Statements of Cash Flows
+(In thousands)
+(unaudited)
+Six Months Ended
+June 28, 2025 | June 29, 2024
+Cash flows from operating activities:
+Net loss | $ (82,158) | $ (88,840)
+Adjustments to reconcile net loss to net cash used in operating activities:
+Depreciation and amortization | 15,682 | 12,182
+Non-cash lease expense | 2,889 | 4,130
+Share-based compensation expense | 10,157 | 11,848
+Provision for credit losses | — | 232
+Loss on sale and write-down of fixed assets | 223 | 363
+Amortization of debt issuance costs | 1,970 | 1,967
+Equity in losses of unconsolidated joint venture | 70 | 23
+Unrealized (gains) losses on foreign currency transactions | (11,161) | 2,671
+Net change in operating assets and liabilities:
+Accounts receivable | (9,291) | (3,273)
+Inventories | 4,709 | 10,005
+Prepaid expenses and other current assets | (8,473) | (2,450)
+Accounts payable | 25,710 | 3,633
+Accrued expenses and other current liabilities | (3,638) | 4,557
+Prepaid lease costs, non-current | (3,888) | (3,236)
+Operating lease liabilities | (2,156) | (1,626)
+Net cash used in operating activities | $ (59,355) | $ (47,814)
+Cash flows from investing activities:
+Purchases of property, plant and equipment | $ (6,423) | $ (2,520)
+Proceeds from sale of fixed assets | 348 | 3,157
+Proceeds from security deposits | — | 532
+Net cash (used in) provided by investing activities | $ (6,075) | $ 1,169
+Cash flows from financing activities:
+Proceeds from delayed draw term loan | $ 40,000 | $ —
+Debt issuance costs | (5,117) | —
+Principal payments under finance lease obligations | (937) | (514)
+Proceeds from exercise of stock options | 6 | 5
+Payments of minimum withholding taxes on net share settlement of equity awards | (312) | (539)
+Net cash provided by (used in) financing activities | $ 33,640 | $ (1,048)
+Net decrease in cash, cash equivalents and restricted cash | (31,790) | (47,693)
+Cash, cash equivalents and restricted cash at the beginning of the period | 145,554 | 205,935
+Effect of exchange rate changes on cash | 3,505 | (233)
+Cash, cash equivalents and restricted cash at the end of the period | $ 117,269 | $ 158,009
+(continued on the next page)
+Supplemental disclosures of cash flow information:
+Cash paid during the period for:
+Interest | $ — | $ —
+Taxes | $ 2 | $ 16
+BEYOND MEAT, INC. AND SUBSIDIARIES
+Condensed Consolidated Statements of Cash Flows
+(In thousands)
+(unaudited)
+Six Months Ended
+June 28, 2025 | June 29, 2024
+Non-cash investing and financing activities:
+Issuance of common stock warrants in connection with delayed draw term loan | $ 20,143 | $ —
+Non-cash additions to property, plant and equipment | $ 1,345 | $ 1,118
+Operating lease right-of-use assets obtained in exchange for lease liabilities | $ 2,082 | $ 1,389
+Reclassification of pre-paid lease costs to finance lease right-of-use assets | $ 19,929 | $ 48
+Non-cash addition to financing leases | $ 10,091 | $ 4,393
+
+Non-GAAP Financial Measures
+
+Beyond Meat uses the non-GAAP financial measures set forth below in assessing its operating performance and in its financial communications. Management believes these non-GAAP financial measures provide useful additional information to investors about current trends in the Company's operations and are useful for period-over-period comparisons of operations. In addition, management uses these non-GAAP financial measures to assess operating performance and for business planning purposes. Management also believes these measures are widely used by investors, securities analysts, rating agencies and other parties in evaluating companies in our industry as a measure of our operational performance. These non-GAAP financial measures should not be considered in isolation or as a substitute for the comparable GAAP measures. In addition, these non-GAAP financial measures may not be computed in the same manner as similarly titled measures used by other companies.
+
+“Adjusted loss from operations” is defined as loss from operations adjusted to exclude, when applicable, costs attributable to special items, which are those items deemed not to be reflective of the Company’s ongoing normal business activities.
+
+“Adjusted operating margin” is defined as Adjusted loss from operations divided by net revenues.
+
+“Adjusted net loss” is defined as net loss adjusted to exclude, when applicable, costs attributable to special items, which are those items deemed not to be reflective of the Company’s normal business activities.
+
+“Adjusted net loss per diluted common share” is defined as Adjusted net loss divided by the number of diluted common shares outstanding.
+
+We consider Adjusted loss from operations, Adjusted operating margin, Adjusted net loss and Adjusted net loss per diluted common share to be useful indicators of operating performance because excluding special items allows for period-over-period comparisons of our ongoing operations. Adjusted net loss per diluted common share is a performance measure and should not be used as a measure of liquidity.
+
+“Adjusted EBITDA” is defined as net loss adjusted to exclude, when applicable, income tax expense (benefit), interest expense, depreciation and amortization expense, share-based compensation expense, non-cash charges related to the suspension and substantial cessation of our operational activities in China, accrued litigation settlement costs, costs related to a partial lease termination of a portion of the Company’s Campus Headquarters and Other, net, including interest income and foreign currency transaction gains and losses.
+
+“Adjusted EBITDA as a % of net revenues” is defined as Adjusted EBITDA divided by net revenues.
+
+There are a number of limitations related to the use of Adjusted EBITDA and Adjusted EBITDA as a % of net revenues rather than their most directly comparable GAAP measures. Some of these limitations are:
+
+•Adjusted EBITDA excludes depreciation and amortization expense and, although these are non-cash expenses, the assets being depreciated may have to be replaced in the future increasing our cash requirements;
+
+•Adjusted EBITDA does not reflect interest expense, or the cash required to service our debt, which reduces cash available to us;
+
+•Adjusted EBITDA does not reflect income tax payments that reduce cash available to us;
+
+•Adjusted EBITDA does not reflect share-based compensation expense and therefore does not include all of our compensation costs;
+
+•Adjusted EBITDA does not reflect accrued litigation settlement costs which reduce cash available to us;
+
+•Adjusted EBITDA does not reflect certain cash costs related to a partial lease termination of a portion of the Company’s Campus Headquarters, which reduces cash available to us;
+
+•Adjusted EBITDA does not reflect Other, net, including interest income and foreign currency transaction gains and losses, that may increase or decrease cash available to us; and
+
+•other companies, including companies in our industry, may calculate Adjusted EBITDA differently, which reduces its usefulness as a comparative measure.
+
+The following tables present the reconciliation of Adjusted loss from operations, Adjusted operating margin, Adjusted net loss and Adjusted net loss per diluted common share to their most comparable GAAP measures, loss from operations, operating margin, net loss and net loss per share available to common stockholders—basic and diluted, respectively, each as reported (unaudited):
+
+Three Months Ended | Six Months Ended
+(in thousands) | June 28, 2025 | June 29, 2024 | June 28, 2025 | June 29, 2024
+Loss from operations, as reported | $ (34,912) | $ (33,931) | $ (91,111) | $ (87,405)
+Non-cash charges related to suspension and substantial cessation of operational activities in China | 1,739 | — | 3,822 | —
+Costs related to partial lease termination | 499 | — | 499 | —
+Accrued litigation settlement costs | — | — | — | 7,500
+Adjusted loss from operations | $ (32,674) | $ (33,931) | $ (86,790) | $ (79,905)
+Loss from operations as a % of net revenues | (46.6) % | (36.4) % | (63.4) % | (51.8) %
+Adjusted operating margin | (43.6) % | (36.4) % | (60.4) % | (47.3) %
+Three Months Ended | Six Months Ended
+(in thousands) | June 28, 2025 | June 29, 2024 | June 28, 2025 | June 29, 2024
+Net loss, as reported | $ (29,242) | $ (34,479) | $ (82,158) | $ (88,840)
+Non-cash charges related to suspension and substantial cessation of operational activities in China | 1,739 | — | 3,822 | —
+Costs related to partial lease termination | 499 | — | 499 | —
+Accrued litigation settlement costs | — | — | — | 7,500
+Adjusted net loss | $ (27,004) | $ (34,479) | $ (77,837) | $ (81,340)
+Three Months Ended | Six Months Ended
+(in thousands, except share and per share amounts) | June 28, 2025 | June 29, 2024 | June 28, 2025 | June 29, 2024
+Numerator:
+Net loss, as reported | $ (29,242) | $ (34,479) | $ (82,158) | $ (88,840)
+Non-cash charges related to suspension and substantial cessation of operational activities in China | 1,739 | — | 3,822 | —
+Costs related to partial lease termination | 499 | — | 499 | —
+Accrued litigation settlement costs | — | — | — | 7,500
+Adjusted net loss used in computing Adjusted net loss per diluted common share | $ (27,004) | $ (34,479) | $ (77,837) | $ (81,340)
+Denominator:
+Weighted average shares used in computing Adjusted net loss per common share | 76,491,594 | 64,901,584 | 76,348,524 | 64,797,245
+Adjusted net loss per diluted common share | $ (0.35) | $ (0.53) | $ (1.02) | $ (1.26)
+Three Months Ended | Six Months Ended
+June 28, 2025 | June 29, 2024 | June 28, 2025 | June 29, 2024
+Net loss per share available to common stockholders—basic and diluted, as reported | $ (0.38) | $ (0.53) | $ (1.08) | $ (1.37)
+Non-cash charges related to suspension and substantial cessation of operational activities in China | 0.02 | — | 0.05 | —
+Costs related to partial lease termination | 0.01 | — | 0.01 | —
+Accrued litigation settlement costs | — | — | — | 0.11
+Adjusted net loss per diluted common share | $ (0.35) | $ (0.53) | $ (1.02) | $ (1.26)
+The following table presents the reconciliation of Adjusted EBITDA to its most comparable GAAP measure, net loss, as reported (unaudited):
+Three Months Ended | Six Months Ended
+(in thousands) | June 28, 2025 | June 29, 2024 | June 28, 2025 | June 29, 2024
+Net loss, as reported | $ (29,242) | $ (34,479) | $ (82,158) | $ (88,840)
+Income tax benefit | — | (34) | — | (32)
+Interest expense | 2,002 | 1,029 | 3,026 | 2,044
+Depreciation and amortization expense (1) | 6,530 | 5,213 | 12,476 | 12,182
+Share-based compensation expense | 4,304 | 5,773 | 10,157 | 11,848
+Non-cash charges related to cessation of operational activities in China (2) | 1,739 | — | 3,822 | —
+Costs related to partial lease termination, net of amounts included in depreciation and amortization expense (3) | 275 | — | 275 | —
+Accrued litigation settlement costs | — | — | — | 7,500
+Other, net (4)(5) | (7,731) | (477) | (12,049) | (600)
+Adjusted EBITDA | $ (22,123) | $ (22,975) | $ (64,451) | $ (55,898)
+Net loss as a % of net revenues | (39.0) % | (37.0) % | (57.2) % | (52.6) %
+Adjusted EBITDA as a % of net revenues | (29.5) % | (24.7) % | (44.9) % | (33.1) %
+
+____________
+
+(1)Excludes $1.7 million and $3.2 million in accelerated depreciation related to suspension and substantial cessation of operational activities in China in the three and six months ended June 28, 2025, respectively.
+
+(2)Includes $1.7 million and $3.2 million in accelerated depreciation related to suspension and substantial cessation of operational activities in China in the three and six months ended June 28, 2025, respectively, and $0 and $0.6 million in inventory and asset write-offs related to suspension and substantial cessation of operational activities in China in the three and six months ended June 28, 2025, respectively.
+
+(3)Includes $0.3 million in lease termination costs apportioned for the three and six months ended June 28, 2025. No such costs were incurred in the three and six months ended June 29, 2024.
+
+(4)Includes $7.5 million and $(1.2) million in net realized and unrealized foreign currency transaction gains (losses) in the three months ended June 28, 2025 and June 29, 2024, respectively. Includes $11.0 million and $(3.5) million in net realized and unrealized foreign currency transaction gains (losses) in the six months ended June 28, 2025 and June 29, 2024, respectively.
+
+(5)Includes $0.5 million and $1.7 million in interest income in the three months ended June 28, 2025 and June 29, 2024, respectively. Includes $1.4 million and $3.7 million in interest income in the six months ended June 28, 2025 and June 29, 2024, respectively. Includes $0.5 million in subsidies received from the Jiaxing Economic Development Zone Finance Bureau related to our investment in BYND JX in the six months ended June 29, 2024.

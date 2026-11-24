@@ -130,6 +130,40 @@ under this one none did, and the one true number still passed. On the deck's
 42 real numbered claims, one, a chart label "Build 6", went from "supported"
 (by "drifted on six axes") to flagged, which was correct.
 
+## Tables
+
+A table row (`a | b | c`, as a filing converted to text prints it) is read
+the way an analyst reads it, on both sides:
+
+- **In the evidence, a number counts only for its own row and period.** In a
+  statement's rows (under a unit note or a period header, or with two numbers
+  or more), a cell supports a claim only if its row label or column header
+  shares a word with the claim ("Total operating expenses | 43,503" supports
+  "operating expenses were $43.5 million", not "EBITDA was $43.5 million"). A
+  cell under "Six Months Ended" supports only a claim that names six months or
+  the half, and one under "Years Ended" any claim but one about a quarter or a
+  half. The same holds for a change or ratio worked out between two cells. A
+  label made only of words every filing uses ("Other, net") must share one of
+  them; a line of text joined by bars is no row.
+- **A unit note scales every cell.** Under "(In thousands)", a filing prints
+  `$` on its first and total rows only, so every number in a row's cells is
+  also read as dollars at that scale: `43,503` supports `$43.5 million`. A
+  header row, and a row that counts things ("Weighted average shares"), is
+  left alone.
+  Accounting negatives keep their kind: `(36.4)%` is a percentage, `$ |
+  (0.38)` and `$(34.9)M` are money.
+- **A document's own table keeps its unit.** In the document being checked,
+  a table whose caption or header names one unit ("Headline Numbers ($M)",
+  "(in millions)") reads a bare cell as that money, so `47.4` is checked as
+  $47.4M. A row whose label says otherwise (`%`, margin, per share, shares)
+  keeps its bare numbers, as does every cell of a table with a column that
+  counts things ("Stores"). The caption and header rows go with each row, so a
+  row claim covers the periods its columns name. In a deck the slide title is
+  the caption; in Word, the paragraph just above the table.
+
+A number joined to a long digit run by a dash (`26-4087597`, a tax ID) is no
+number.
+
 ## Charts
 
 A native chart object carries its numbers exactly, so it is read with no
@@ -223,11 +257,18 @@ results vary by model and run.
   gives many pairs, and one of their changes can match an unrelated
   percentage by coincidence; `--extend-select ONS004` lists every number
   supported only by arithmetic, so each can be checked by hand.
-- **Presence, not subject.** A number is supported if a named evidence file
-  contains it anywhere (from a directory, its sentence must share a word with
-  the claim). "NRR 42%" passes against "ARR up 42%". Catching a right number on
-  the wrong subject is tier 2's job, and it currently judges only claims that
-  tier 1 can't settle.
+- **Presence, not subject, outside tables.** A number in a named evidence
+  file's prose is supported if the file contains it anywhere (from a
+  directory, its sentence must share a word with the claim). "NRR 42%" passes
+  against "ARR up 42%". A statement's cell must share a word with the claim
+  through its row label or column header, which is a word, not a meaning:
+  "Adjusted operating margin" shares nothing with "Loss from operations", and
+  only a few synonyms ("sales" for revenue, "EPS" for per share) are known. Catching a right number on the
+  wrong subject in prose is tier 2's job, and it currently judges only claims
+  that tier 1 can't settle.
+- **A row claim covers every column.** A claim made of a document table's row
+  carries all its table's period headers, so a Q2 cell can still match the
+  evidence's six-month column when the document's table has one too.
 - **A year and a count can look alike.** Anything from 1950 to 2099 could be
   either, so the words around it decide which it reads as ("2000 users" is a
   count, "in 2000" a year) and which rule code a finding gets. Matching tries

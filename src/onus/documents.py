@@ -9,6 +9,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from onus import numbers
+
 # A block that is only a short number is a page number or a list marker.
 _BARE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
 _MEDIA_ALIASES = {"image/jpg": "image/jpeg", "image/x-png": "image/png"}
@@ -23,7 +25,9 @@ class Block:
     text: str
     origin: str = "text"  # "text" | "chart" | "image": a transcription is only as good as the model's reading
     plain: bool = False  # ends in a chart value printed with no format: a magnitude, no unit
-    unit: str = ""  # the currency and scale that value's chart names ("$B"), if it names one
+    unit: str = ""  # the currency and scale that value's chart or table names ("$B"), if it names one
+    cells: bool = False  # a table row or cell: a bare number filling a cell is money in `unit`
+    context: str = ""  # a table's caption and header row, which say what its numbers are about
 
 
 @dataclass(frozen=True)
@@ -74,6 +78,93 @@ class Document:
             self.blocks.append(replace(block, id=len(self.blocks), text=text))
 
 
+_YEAR = re.compile(r"(?:19|20)\d\d")
+_DASHES = re.compile(r"[-:\s]*")
+
+
+def _unit_of(text: str) -> tuple[str, float] | None:
+    """The money `text` says a table's numbers are in: "($M)", "USD millions", "(In thousands)"."""
+    if (read := numbers.stated_unit(text)) is not None:
+        return read
+    if (note := numbers.UNIT_NOTE.search(text)) is not None:
+        return "$", numbers.SCALE[note.group(1).lower()]
+    return None
+
+
+def _table_unit(caption: str, header: list[str]) -> str:
+    """The one unit a table's caption and header cells name, as a unit string; none if they name several."""
+    found = {u for t in [caption, *header] if (u := _unit_of(t)) is not None}
+    if len(found) != 1:
+        return ""
+    symbol, scale = found.pop()
+    return f"{symbol} {next(k for k, v in numbers.SCALE.items() if v == scale and len(k) > 2)}"
+
+
+def _row_unit(label: str, table_unit: str) -> str:
+    if _unit_of(label) is not None:
+        return _table_unit("", [label])
+    return "" if numbers.NOT_MONEY.search(label) else table_unit
+
+
+def _table(label: str, rows: list[list[str]], caption: str) -> list[Block]:
+    """A pptx or docx table: the header row and caption say what every cell below is about and in."""
+    if not rows:
+        return []
+    header = rows[0]
+    unit = _table_unit(caption, header)
+    context = " ".join([caption, *header]).strip()
+    out = [Block(0, label, cell, context=context) for cell in header]
+    money = [not numbers.COUNTED.search(h) or _unit_of(h) is not None for h in header]
+    for row in rows[1:]:
+        row_unit = _row_unit(row[0], unit) if row else ""
+        out += [Block(0, label, cell, unit=row_unit if i >= len(money) or money[i] else "",
+                      cells=bool(row_unit) and i > 0 and (i >= len(money) or money[i]), context=context)
+                for i, cell in enumerate(row)]
+    return out
+
+
+def _text_tables(lines: list[str]) -> list[Block]:
+    """Lines as blocks; a row of an `a | b | c` table carries the unit and the period headers its
+    caption and header rows state. A table ends at a blank line or a line of prose; its caption is
+    the short lines just above it, or the heading above the blank line before it."""
+    blocks: list[Block] = []
+    lead: list[str] = []  # short lines since the last blank line, before a table starts
+    before_blank: list[str] = []
+    header: list[str] = []
+    columns: list[str] = []  # the last header row's cells, in place
+    caption, in_table, in_data = "", False, False
+    for i, line in enumerate(lines, start=1):
+        text = line.strip()
+        row = "|" in text
+        if not text or (not row and len(text) > numbers.PROSE_LINE):
+            before_blank = lead[-1:] if not text else []
+            lead, header, columns, in_table, in_data = [], [], [], False, False
+            blocks.append(Block(0, f"line {i}", line))
+            continue
+        cells = [c.strip() for c in text.strip("|").split("|")] if row else [text]
+        values = [c for c in cells[1:] if numbers.VALUE_CELL.fullmatch(c) and any(ch.isdigit() for ch in c)]
+        if row and not in_table:
+            in_table, caption, lead = True, " ".join(lead or before_blank), []
+        if not in_table:
+            lead.append(text)
+            blocks.append(Block(0, f"line {i}", line))
+            continue
+        if not values or (not in_data and all(_YEAR.fullmatch(v) for v in values)):
+            if numbers.PERIOD_HEADER.search(text) or row:
+                header += [c for c in cells if c]
+            if row and not all(_DASHES.fullmatch(c) for c in cells):
+                columns = cells
+            blocks.append(Block(0, f"line {i}", line, context=caption))
+            continue
+        in_data = True
+        mixed = any(numbers.COUNTED.search(h) and _unit_of(h) is None and numbers.VALUE_CELL.fullmatch(c)
+                    and "%" not in c for h, c in zip(columns[1:], cells[1:], strict=False))
+        unit = "" if mixed else _row_unit(cells[0], _table_unit(caption, header))
+        blocks.append(Block(0, f"line {i}", line, unit=unit, cells=bool(unit),
+                            context=" ".join([caption, *header]).strip()))
+    return blocks
+
+
 def _shapes(shapes):
     from pptx.shapes.group import GroupShape
 
@@ -94,6 +185,7 @@ def _pptx(path: Path) -> tuple[list[Block], list[Figure]]:
     figures: list[Figure] = []
     for n, slide in enumerate(Presentation(str(path)).slides, start=1):
         pictures = graphs = 0
+        title = slide.shapes.title.text_frame.text if slide.shapes.title is not None else ""
         for shape in _shapes(slide.shapes):
             if getattr(shape, "has_chart", False) and shape.has_chart:
                 graphs += 1
@@ -114,13 +206,11 @@ def _pptx(path: Path) -> tuple[list[Block], list[Figure]]:
                 alt = next(iter(shape._element.xpath("./p:nvPicPr/p:cNvPr/@descr")), "")
                 figures.append(Figure(f"slide {n}", pictures, part.blob, _media(part.content_type), _alt(alt)))
                 continue
-            frames = []
-            if shape.has_text_frame:
-                frames = [shape.text_frame]
-            elif getattr(shape, "has_table", False) and shape.has_table:
-                frames = [c.text_frame for row in shape.table.rows for c in row.cells]
-            for frame in frames:
-                for paragraph in frame.text.split("\n"):
+            if getattr(shape, "has_table", False) and shape.has_table:
+                rows = [[c.text_frame.text for c in row.cells] for row in shape.table.rows]
+                texts += [replace(b, text=p) for b in _table(f"slide {n}", rows, title) for p in b.text.split("\n")]
+            elif shape.has_text_frame:
+                for paragraph in shape.text_frame.text.split("\n"):
                     texts.append(Block(0, f"slide {n}", paragraph))
     return texts, figures
 
@@ -147,15 +237,15 @@ def _docx(path: Path) -> tuple[list[Block], list[Figure]]:
         texts.append(Block(0, f"paragraph {i}", p.text))
         pictures(f"paragraph {i}", p._p)
     for t, table in enumerate(d.tables, start=1):
-        for row in table.rows:
-            for cell in row.cells:
-                texts.append(Block(0, f"table {t}", cell.text))
+        before = table._tbl.getprevious()
+        caption = "".join(before.xpath(".//w:t/text()")) if before is not None and before.tag.endswith("}p") else ""
+        texts += _table(f"table {t}", [[cell.text for cell in row.cells] for row in table.rows], caption)
         pictures(f"table {t}", table._tbl)  # once per table: a merged cell is listed per column
     return texts, figures
 
 
 def _text(path: Path) -> tuple[list[Block], list[Figure]]:
-    return [Block(0, f"line {i}", line) for i, line in enumerate(path.read_text().splitlines(), start=1)], []
+    return _text_tables(path.read_text().splitlines()), []
 
 
 READERS = {".pptx": _pptx, ".docx": _docx, ".md": _text, ".txt": _text, ".markdown": _text}
