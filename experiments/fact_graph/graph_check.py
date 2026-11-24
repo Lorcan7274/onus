@@ -254,6 +254,8 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                                  lambda f, q=q, ps=per_share: unit_ok(q, f, ps) or q.kind == "percent")
                     if SHARE.search(window):  # a margin is money over revenue, never another percentage fact
                         cands = [f for f in cands if f.unit != "xbrli:pure"]
+                        if re.search(r"\bmargin\b", window, re.I):
+                            cands.sort(key=lambda f: not re.search(r"IncomeLoss|Profit", f.concept))
                     stated = [f for f in cands if unit_ok(q, f, per_share)]
                     named = bool(content(mwindow))
                     if not cands and not named and subject is not None and not part:
@@ -529,6 +531,16 @@ def own_arithmetic(items, groups, formulas):
     return out
 
 
+def _pair(qs: list, verdicts: list) -> list:
+    """Each number with its own verdict: in order when the counts agree, else by raw text, never shifted."""
+    if len(qs) == len(verdicts):
+        return list(zip(qs, verdicts, strict=True))
+    pool: dict[str, list] = {}
+    for v in verdicts:
+        pool.setdefault(v.raw, []).append(v)
+    return [(q, pool[q.raw].pop(0)) for q in qs if pool.get(q.raw)]
+
+
 def check_document(text: str, graph: Graph, presence: ev.Evidence, end: date) -> dict[int, list]:
     """Verdicts per line, in the order its numbers appear: table cells by row and column (a row or cell that
     combines two metrics split apart, a unit stated for the document applied), prose by sentence, then
@@ -546,13 +558,16 @@ def check_document(text: str, graph: Graph, presence: ev.Evidence, end: date) ->
                 continue
             protected = expand(line).replace("U.S. ", "U.S.\u200b")
             verdicts = [v for _, v in check(line, graph, presence, end) if v.status != "skipped"]
-            qs = [q for q in numbers.find(protected) if not q.temporal]
+            qs = [q for q in numbers.find(protected) if not q.temporal and not REFERENCE.search(protected[:q.start])]
             bounds, pos = [], 0
             for sentence in numbers.sentences(protected):
                 pos = protected.find(sentence, pos)
                 bounds.append(pos + len(sentence))
             groups = [next((i for i, b in enumerate(bounds) if q.start < b), len(bounds)) for q in qs]
-            per_line[n] = (list(zip(qs, verdicts, strict=False)), groups, protected)
+            pairs = _pair(qs, verdicts)
+            kept = {id(q) for q, _ in pairs}
+            groups = [gr for q, gr in zip(qs, groups, strict=True) if id(q) in kept]
+            per_line[n] = (pairs, groups, protected)
             continue
         if header is None:
             header = _cells(stripped)
@@ -564,8 +579,9 @@ def check_document(text: str, graph: Graph, presence: ev.Evidence, end: date) ->
         keyed = []
         for sentence, (col, part) in table_sentences(header, _cells(stripped), millions):
             verdicts = [v for _, v in check(sentence, graph, presence, end) if v.status != "skipped"]
-            qs = [q for q in numbers.find(expand(sentence)) if not q.temporal]
-            keyed += [((col, part, j), q, v) for j, (q, v) in enumerate(zip(qs, verdicts, strict=False))]
+            qs = [q for q in numbers.find(expand(sentence)) if not q.temporal and not REFERENCE.search(
+                expand(sentence)[:q.start])]
+            keyed += [((col, part, j), q, v) for j, (q, v) in enumerate(_pair(qs, verdicts))]
         keyed.sort(key=lambda x: x[0])
         per_line[n] = ([(q, v) for _, q, v in keyed], [0] * len(keyed))
     formulas = [f for entry in per_line.values() if len(entry) == 3 for f in written_formulas(entry[2], entry[0])]

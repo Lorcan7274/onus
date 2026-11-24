@@ -59,6 +59,18 @@ filing table cell that states the claimed value blocks certainty; on set 7, scor
 layer catches 3 more errors, loses none, clears 6 false flags and adds 3. Most remaining false flags are onus's own: derived figures whose inputs sit in another
 sentence with no written formula, which neither layer can confirm yet.
 
+With the current code, sets 1-4 used to develop it and sets 5-7 not, the layer against onus alone:
+
+| Set | Onus: false caught / true flagged | Onus + graph layer |
+|---|---|---|
+| 1 | 42 / 62, 20 / 270 | 48 / 62, 17 / 270 |
+| 2 | 42 / 57, 45 / 214 | 47 / 57, 26 / 214 |
+| 3 | 24 / 39, 63 / 360 | 29 / 39, 45 / 360 |
+| 4 | 32 / 47, 63 / 380 | 33 / 47, 53 / 380 |
+| 5 | 25 / 37, 36 / 290 | 27 / 37, 30 / 290 |
+| 6 | 33 / 50, 130 / 375 | 38 / 50, 99 / 375 |
+| 7 | 29 / 39, 32 / 322 | 32 / 39, 29 / 322 |
+
 ## Running
 
 From this folder:
