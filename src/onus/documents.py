@@ -70,7 +70,7 @@ class Document:
         seen = {(b.label, b.text) for b in self.blocks}
         for block in items:
             text = " ".join(block.text.split())
-            if not text or _BARE_NUMBER.match(text):
+            if not text or _BARE_NUMBER.match(text) and not block.context:  # a page number, not a table cell
                 continue
             if (block.label, text) in seen:  # a slide repeats its eyebrow, a table its header
                 continue
@@ -80,6 +80,22 @@ class Document:
 
 _YEAR = re.compile(r"(?:19|20)\d\d")
 _DASHES = re.compile(r"[-:\s]*")
+
+
+# What a value cell may hold besides its number: a scale or a unit of change.
+_VALUE_WORDS = {"k", "m", "mm", "b", "bn", "t", "thousand", "million", "billion", "x", "bp", "bps", "pt", "pts", "pp"}
+
+
+def _is_value(cell: str) -> bool:
+    """Whether a cell states a figure ("$75.0M", "(26.0)", "-8.6%") rather than names one ("Month 1", "Top 10",
+    "12/31/2024")."""
+    found = [q for q in numbers.find(cell) if not q.temporal]
+    if not found or re.search(r"\d\s*/\s*\d", cell):
+        return False
+    rest = cell
+    for q in reversed(found):
+        rest = rest[:q.start] + " " + rest[q.end:]
+    return all(w.lower() in _VALUE_WORDS for w in re.findall(r"[A-Za-z]+", rest))
 
 
 def _unit_of(text: str) -> tuple[str, float] | None:
@@ -118,7 +134,8 @@ def _table(label: str, rows: list[list[str]], caption: str) -> list[Block]:
     for row in rows[1:]:
         row_unit = _row_unit(row[0], unit) if row else ""
         out += [Block(0, label, cell, unit=row_unit if i >= len(money) or money[i] else "",
-                      cells=bool(row_unit) and i > 0 and (i >= len(money) or money[i]), context=context)
+                      cells=bool(row_unit) and i > 0 and (i >= len(money) or money[i]),
+                      context=f"{context} {row[0]}" if i else context)
                 for i, cell in enumerate(row)]
     return out
 
@@ -142,7 +159,7 @@ def _text_tables(lines: list[str]) -> list[Block]:
             blocks.append(Block(0, f"line {i}", line))
             continue
         cells = [c.strip() for c in text.strip("|").split("|")] if row else [text]
-        values = [c for c in cells[1:] if any(not q.temporal for q in numbers.find(c))]
+        values = [c for c in cells[1:] if _is_value(c)]
         if row and not in_table:
             in_table, caption, lead = True, " ".join(lead or before_blank), []
         if not in_table:

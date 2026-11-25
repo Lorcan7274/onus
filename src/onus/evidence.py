@@ -74,9 +74,12 @@ ANNUAL_PERIOD = re.compile(r"\b(?:twelve|12)[\s-]+months?\b|\bfull[\s-]+year\b|\
 QUARTER_PERIOD = re.compile(r"\b(?:three|3)[\s-]+months?\b|\bquarter\b|\bq[1-4]\b", re.I)
 _YEAR = re.compile(r"(?:19|20)\d\d")
 _YEARS = re.compile(r"\b(?:19|20)\d\d\b")
+_MONTH = re.compile(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}\b", re.I)
+_YEAR_END = re.compile(r"\b(?:Dec(?:ember|\.)?\s+(?:31,?\s+)?|year[\s-]+end\s+)((?:19|20)\d\d)\b", re.I)
 # A claim that sets a figure against an earlier one may cite the year before the one it names.
-_EARLIER = re.compile(r"\bcompared\b|\bversus\b|\bvs\.?\s|\bfrom\b|\byear[\s-]+ago\b|\bprior[\s-]+year\b"
-                      r"|\b(?:grew|grow|growth|rose|fell|increased?|decreased?|declined?|up|down|change[ds]?)\b"
+_EARLIER = re.compile(r"\bcompared\b|\bversus\b|\bvs\.?\s|\byear[\s-]+ago\b|\bprior[\s-]+year\b"
+                      r"|\b(?:grew|grow|growth|rose|fell|increased?|decreased?|declined?|change[ds]?)\b"
+                      r"|\b(?:up|down|from)\s+(?:from\s+)?[$€£\d]"
                       r"|\blast\s+year\b|\ba\s+year\s+(?:earlier|before)\b|\byear[\s-]+over[\s-]+year\b|\byoy\b",
                       re.I)
 _DASHES = re.compile(r"[-:\u2013\u2014]+")
@@ -84,11 +87,12 @@ _DASHES = re.compile(r"[-:\u2013\u2014]+")
 
 @dataclass(frozen=True)
 class Cell:
-    """A number's place in a table: its row's label and its column's headers."""
+    """A number's place in a table: its row's label, its column's headers and the section row above it."""
     start: int
     end: int
     label: str
     column: str
+    section: str = ""
 
 
 def _parts(line: str, offset: int) -> list[tuple[int, int, str]]:
@@ -164,7 +168,7 @@ def table_cells(text: str) -> list[Cell]:
             continue
         if values and not years:
             in_data = True
-            if stated or len(values) > 1:
+            if stated or len(values) > 1 and 2 * len(values) >= len(parts) - 1:
                 row_slots = _slots(line)
                 places, at = [], 0
                 for _, _, t in values:
@@ -172,10 +176,7 @@ def table_cells(text: str) -> list[Cell]:
                     places.append(at)
                     at += 1
                 columns = _columns(headers, row_slots, places)
-                label = parts[0][2]
-                if section and not _stems(label) - GENERIC:
-                    label = f"{section} {label}"
-                out += [Cell(a, b, label, c) for (a, b, _), c in zip(values, columns, strict=True)]
+                out += [Cell(a, b, parts[0][2], c, section) for (a, b, _), c in zip(values, columns, strict=True)]
         elif short and (numbers.PERIOD_HEADER.search(line) or (row and not in_data)):
             if in_data:
                 headers, in_data = [], False
@@ -198,8 +199,8 @@ EXPANSIONS = [(re.compile(p, re.I), r) for p, r in (
     (r"\bSG&A\b", "selling general administrative"), (r"\bNRR\b", "net revenue retention"),
     (r"\bARR\b", "annual recurring revenue"), (r"\bcapex\b", "capital expenditures"),
     (r"\bopex\b", "operating expenses"), (r"\bCOGS\b", "cost goods sold"),
-    (r"\bas\s+an?\s+(?:%|percent(?:age)?)\s+of\s+(?:total\s+|net\s+)*(?:revenues?|sales)\b|%\s+of\s+(?:total\s+|net\s+)*"
-     r"(?:revenues?|sales)\b", "margin"))]
+    (r"\bas\s+an?\s+(?:%|percent(?:age)?)\s+of\s+(?:total\s+|net\s+)*(?:revenues?|sales)\b", " margin"),
+    (r"%\s+of\s+(?:total\s+|net\s+)*(?:revenues?|sales)\b", "% margin"))]
 
 
 def _expand(text: str) -> str:
@@ -234,14 +235,13 @@ def _subject(column: str) -> set[str]:
     return {_stem(SYNONYMS.get(w, w)) for w in words}
 
 
-_FISCAL_YEAR = re.compile(r"\bfy\s?\d{2,4}\b|\bfiscal\s+\d{2,4}\b", re.I)
+_FISCAL_YEAR = re.compile(r"(?<=\bQ[1-4])\s*(?:fy\s?|fiscal\s+)'?\d{2,4}\b", re.I)
 
 
 def _spans(text: str) -> set[str]:
     """The lengths of period `text` names: a half or year to date, a quarter, a year. A fiscal year
     beside a quarter ("Q3 FY2025") only says which year the quarter is in."""
-    if QUARTER_PERIOD.search(text):
-        text = _FISCAL_YEAR.sub(" ", text)
+    text = _FISCAL_YEAR.sub(" ", text)
     return {name for name, pattern in (("half", HALF_PERIOD), ("quarter", QUARTER_PERIOD),
                                        ("annual", ANNUAL_PERIOD)) if pattern.search(text)}
 
@@ -256,6 +256,8 @@ def same_period(column: str, claim: str) -> bool:
     if span == "half" and "half" not in said or span in ("annual", "quarter") and said and span not in said:
         return False
     years, named = {int(y) for y in _YEARS.findall(column)}, {int(y) for y in _YEARS.findall(claim)}
+    if not _MONTH.search(claim):  # "entering 2025" begins at December 31, 2024; "as of June 28, 2025" does not
+        years |= {int(y) + 1 for y in _YEAR_END.findall(column)}
     if not years or not named:
         return True
     if _EARLIER.search(claim):
@@ -266,11 +268,16 @@ def same_period(column: str, claim: str) -> bool:
 def fits(cell: Cell, claim: str) -> bool:
     """A table number is about the claim only if its row label or column header shares a word with
     it, in its period; a word every filing uses ("total", "net") counts only in a label that has no
-    other ("Other, net"). A cell with no words to go by is judged by its period alone."""
-    names = _stems(cell.label) | _subject(cell.column)
-    if not names:
+    other ("Other, net"); the section row above ("Operating income:") names a row whose label says no more
+    ("Total").
+    A cell with no words to go by is judged by its period alone."""
+    names, said = _stems(cell.label) | _subject(cell.column), _stems(claim)
+    if not names and not cell.section:
         return same_period(cell.column, claim)
-    return bool((names - GENERIC or names) & _stems(claim)) and same_period(cell.column, claim)
+    about = bool((names - GENERIC or names) & said)
+    if not about and not names - GENERIC:
+        about = bool(_stems(cell.section) - GENERIC & said)
+    return about and same_period(cell.column, claim)
 
 
 @dataclass

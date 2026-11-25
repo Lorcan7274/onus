@@ -73,10 +73,10 @@ layer against onus alone:
 | 1 | 42 / 62, 20 / 270 | 48 / 62, 16 / 270 |
 | 2 | 42 / 57, 46 / 214 | 47 / 57, 26 / 214 |
 | 3 | 24 / 39, 60 / 360 | 29 / 39, 44 / 360 |
-| 4 | 32 / 47, 61 / 380 | 33 / 47, 49 / 380 |
+| 4 | 32 / 47, 60 / 380 | 34 / 47, 47 / 380 |
 | 5 | 25 / 37, 37 / 290 | 27 / 37, 31 / 290 |
-| 6 | 34 / 50, 124 / 375 | 39 / 50, 94 / 375 |
-| 7 | 29 / 39, 32 / 322 | 32 / 39, 26 / 322 |
+| 6 | 34 / 50, 122 / 375 | 38 / 50, 92 / 375 |
+| 7 | 29 / 39, 32 / 322 | 32 / 39, 25 / 322 |
 
 The graph keeps its own copy of the word lists it matches with, so changes to onus's table matching never
 change which fact a number keys to. They can still move the graph's verdicts: whether a "wrong" is
@@ -86,9 +86,11 @@ whether the number is present in the filing's text.
 These scores come after a review that fixed, in onus, a document table whose cells must match the same
 table as evidence, column years and fiscal quarters, and section rows; and, in the graph, the sign of a
 table cell or a bulleted figure, the period a number's own words name, ratios written out, and money
-set against a percentage in a formula. On top of the earlier sign, "compared to", nested-fact and
-quarter fixes, the layer catches as many errors or more on every set and flags fewer true numbers on
-six of the seven. The graph-only rows printed by `score_agents.py` count a number the graph could not
+set against a percentage in a formula; then guidance named once for a whole sentence, half years and
+fiscal years, a balance carried to another date, a period a neighbouring figure names, approximate
+figures, and a subject that only a figure whose words its fact explains can lend to the next. On top of
+the earlier sign, "compared to", nested-fact and quarter fixes, the layer catches as many errors or more
+on every set and flags fewer true numbers on six of the seven. The graph-only rows printed by `score_agents.py` count a number the graph could not
 parse as neither passed nor flagged.
 
 Much of the prototype is tuned to this one filer: the segment members in `SEGMENTS`, the abbreviations in

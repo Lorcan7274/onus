@@ -775,3 +775,59 @@ def test_amounts_in_one_cell_of_a_barred_line_license_arithmetic_and_counts_do_n
     grew, coincidence = scanned(tmp_path, "Revenue grew 33% in 2025.\n\nMargin was 48.8%.")
     assert verify.check_numbers(grew, e) == [] and grew.status == "derived"
     assert [f.raw for f in verify.check_numbers(coincidence, e)] == ["48.8%"]
+
+
+def test_a_header_that_names_a_number_stays_a_header(tmp_path):
+    table = "| Quarter | Customers > $100k | Top 10 share |\n|---|---|---|\n| Q4 2024 | 1,315 | 44.8% |\n"
+    (tmp_path / "t.md").write_text(table)
+    assert check(tmp_path / "t.md", ev.load([tmp_path / "t.md"]), Settings(llm=False)).findings == []
+
+
+def test_a_dollar_cell_is_held_to_its_row_and_period(tmp_path):
+    e = ev.Evidence()
+    e.add("t.md", "(In millions)\n| Metric | Q4 FY2024 | Fiscal 2024 |\n|---|---|---|\n| Revenue | $ 12.1 | $ 44.8 |\n")
+    swap, both = scanned(tmp_path, "Q4 FY2024 revenue was $44.8 million.\n\n"
+                                   "Fiscal 2024 revenue was $44.8 million, with Q4 contributing $12.1 million.")
+    assert [f.raw for f in verify.check_numbers(swap, e)] == ["$44.8 million"]
+    assert verify.check_numbers(both, e) == []
+
+
+def test_a_total_under_a_section_fits_a_claim_about_the_total_and_a_named_row_only_its_label(tmp_path):
+    e = ev.Evidence()
+    e.add("t.md", "| | 2023 | 2024 |\n|---|---|---|\n| **Team** | | |\n| Engineering | 120 | 140 |\n"
+                  "| Total | 212 | 230 |\n| International: | | |\n| Retail | 15,867 | 17,585 |\n")
+    total, other = scanned(tmp_path, "Total headcount was 230 in 2024.\n\n"
+                                     "International foodservice was 15,867 in 2023.")
+    assert verify.check_numbers(total, e) == [] and [f.raw for f in verify.check_numbers(other, e)] == ["15,867"]
+
+
+def test_a_year_end_column_is_where_the_next_year_begins_unless_the_claim_names_a_date(tmp_path):
+    e = ev.Evidence()
+    e.add("t.md", "| Metric | December 31, 2024 | June 28, 2025 |\n|---|---|---|\n| Customers | 1,315 | 1,402 |\n"
+                  "| Cash and cash equivalents | 131.9 | 103.5 |\n")
+    entering, dated = scanned(tmp_path, "Entering 2025, we served 1,315 customers.\n\n"
+                                        "Cash and cash equivalents were 131.9 as of June 28, 2025.")
+    assert "1,315" not in [f.raw for f in verify.check_numbers(entering, e)]
+    assert "131.9" in [f.raw for f in verify.check_numbers(dated, e)]
+
+
+def test_a_log_line_is_no_statement_row(tmp_path):
+    e = ev.Evidence()
+    e.add("server.log", "2024-11-03T12:00:03Z | INFO | worker-7 | requests | 98213 | errors | 41\n")
+    (c,) = scanned(tmp_path, "We served 98,213 requests with 41 errors.")
+    assert verify.check_numbers(c, e) == []
+
+
+def test_a_word_table_cell_carries_its_row_label_and_keeps_a_short_number(tmp_path):
+    import docx
+
+    w = docx.Document()
+    w.add_paragraph("Key metrics")
+    t = w.add_table(rows=3, cols=2)
+    for (r, c), text in {(0, 0): "Metric", (0, 1): "2024", (1, 0): "Customers", (1, 1): "1,315",
+                         (2, 0): "Employees", (2, 1): "251"}.items():
+        t.cell(r, c).text = text
+    w.save(tmp_path / "kpi.docx")
+    e = ev.Evidence()
+    e.add("kpi.md", "| Metric | 2024 |\n|---|---|\n| Customers | 1,315 |\n| Employees | 230 |\n")
+    assert [f.message.split(":")[0] for f in check(tmp_path / "kpi.docx", e, Settings(llm=False)).findings] == ["251"]

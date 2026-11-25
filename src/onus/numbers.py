@@ -99,7 +99,7 @@ class Quantity:
         that magnitude states it (2400000 is $2.4M, 0.88 is 88%), and it states any. Under a chart
         that states its unit, the money at that scale states it too: 96.2 under "($B)" is $96.2B."""
         plain, unit = (self, other) if self.kind == "number" else (other, self)
-        if unit.temporal or plain.cell and unit.group not in ("money", "count"):
+        if unit.temporal or plain.cell and unit.group not in ("money", "count", "number"):
             return False
         readings = [(plain.value, unit.value, self.tolerance)]
         if unit.group == "percent":
@@ -108,9 +108,9 @@ class Quantity:
             readings.append((plain.value * plain.scale, unit.value,
                              self.tolerance * (plain.scale if self is plain else 1.0)))
         if plain.cell:  # "26.0" in a cell is no "26" on a page, nor "$36" a bare 36: precision and kind hold
-            unscaled = readings[0] if unit.group == GROUP[plain.cell] else None
-            readings = [r for r in readings
-                        if (r is unscaled or r is not readings[0]) and unit.tolerance <= r[2] + 1e-9]
+            first = readings[0]
+            same = unit.group in (GROUP[plain.cell], "number") and unit.tolerance <= first[2] + 1e-9
+            readings = [r for r in readings if r is not first or same]
         return any(abs(a - b) <= tolerance + 1e-9 for a, b, tolerance in readings)
 
 
@@ -168,9 +168,9 @@ PATTERNS = [
                          rf"(?P<low>{NUM}){H}?(?P<low_tail>{RANGE_TAIL})?(?P<sep>{RANGE_SEP})"
                          rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM})(?:\n(?-i:(?=[a-z]))|{H})?(?P<tail>{RANGE_TAIL})?"
                          rf"(?![a-z0-9]|-[a-z])", re.I)),
-    ("currency", re.compile(rf"([$€£])\s?({NUM})\s?({SCALE_WORDS})?(?![a-z])", re.I)),
+    ("currency", re.compile(rf"([$€£])\s?({NUM})(?:\s?({SCALE_WORDS}))?(?![a-z])", re.I)),
     # Accounting negatives, "$(34.9)M" and "$ | (0.38)": a filing's HTML puts the dollar sign in a cell of its own.
-    ("currency", re.compile(rf"([$€£])\s?\(({NUM})\)\s?({SCALE_WORDS})?(?![a-z])", re.I)),
+    ("currency", re.compile(rf"([$€£])\s?\(({NUM})\)(?:\s?({SCALE_WORDS}))?(?![a-z])", re.I)),
     ("currency", re.compile(rf"([$€£])\s*\|\s*\(?({NUM})\)?()(?![\w%]|\.\d|,\d)")),
     ("percent", re.compile(rf"(?<![\w.])\(({NUM})\)\s?(%)")),
     ("percent", re.compile(rf"(?<![\w.])({NUM})\s?(%|percent\b|per cent\b)", re.I)),
