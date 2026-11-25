@@ -700,6 +700,17 @@ def test_a_header_date_or_a_count_row_under_a_unit_note_is_no_money(tmp_path):
         ["$2.0 million"], ["$63.4 million"], ["$1.2 million"]]
 
 
+def test_a_row_whose_label_names_a_period_or_whose_cell_looks_like_a_year_is_still_money(tmp_path):
+    e = ev.Evidence()
+    e.add("10q.md", "(In thousands)\nThree Months Ended\nJune 28, 2025 | June 29, 2024\n"
+                    "Net loss for the quarter | (34,912) | (33,931)\nCash at end of year | 117,269 | 158,009\n"
+                    "Revenue | 1,500 | 1,400\nRoyalties | 1987 | 1500\n")
+    claims_ = scanned(tmp_path, "Net loss was $34.9 million in the quarter.\n\n"
+                                "Cash was $117.3 million at the end of the year.\n\n"
+                                "Royalties were $2.0 million.\n\nRestructuring costs were $2.0 billion.")
+    assert [[f.raw for f in verify.check_numbers(c, e)] for c in claims_] == [[], [], [], ["$2.0 billion"]]
+
+
 def test_a_document_column_that_counts_things_keeps_its_bare_numbers(tmp_path):
     e = ev.load(texts=["Retail revenue was $32.9 million across 120 stores, and we had 1,200 customers."])
     (tmp_path / "brief.md").write_text("Revenue by segment (in thousands)\n| Segment | Revenue | Stores |\n"

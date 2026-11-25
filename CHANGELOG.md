@@ -13,7 +13,8 @@
 - Under a unit note ("(In thousands)"), every number in a table row's cells
   is read as dollars at that scale, not only those with a `$` beside them, so
   `Total operating expenses | 43,503` supports "$43.5 million"; header dates
-  and rows that count shares, staff or customers are not. Accounting
+  and rows that count shares, staff or customers are not, but a row whose label
+  names a period (`Cash at end of year`) or a cell like `1987` is. Accounting
   negatives keep their kind: `(36.4)%`, `$ | (0.38)` and `$(34.9)M`. With the
   row rule above, the corrected Beyond Meat release went from 27 findings to
   8 on its narrative and from 106 to 42 in full; the original still flags

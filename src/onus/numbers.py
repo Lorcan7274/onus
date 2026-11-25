@@ -428,17 +428,23 @@ NOT_MONEY = re.compile(rf"%|\bpercent|\bmargin|\bbps\b|\bbasis points?|\bper sha
                        rf"{COUNTED.pattern}", re.I)
 
 
+_YEAR_CELL = re.compile(r"(?:19|20)\d\d")
+
+
 def scaled(text: str, quantities: list[Quantity]) -> list[Quantity]:
     """The dollar amounts of a table under a unit note, read at that scale as well. A filing puts
     "$" on a statement's first and total rows only, so every bare number in a row's cells is read
-    as dollars too, but in a header row or a row whose label names no money ("Shares"). They stay
+    as dollars too, but in a header row (no numbers but years, above the first data row) or a row
+    whose label names no money ("Shares"). They stay
     readable unscaled: a per-share column under "(In thousands, except per share data)" is dollars.
     A blank line or a line of prose ends the table; an amount that names its own scale ("$4.2
     billion") is left alone."""
-    out, scale, pos, noted = [], 1.0, 0, False
+    out, scale, pos, noted, in_data = [], 1.0, 0, False, False
     for line in text.split("\n"):
         start, pos = pos, pos + len(line) + 1
         row = "|" in line
+        if not line.strip() or (not row and len(line) > PROSE_LINE):
+            in_data = False
         if not line.strip() and not noted or (not row and len(line) > PROSE_LINE):
             scale = 1.0  # a blank line right after a note keeps it for the table below
         if note := UNIT_NOTE.search(line):
@@ -448,13 +454,18 @@ def scaled(text: str, quantities: list[Quantity]) -> list[Quantity]:
         if scale == 1.0:
             continue
         cells_from = start + line.find("|") if row else pos
-        bare = row and not NOT_MONEY.search(line.split("|", 1)[0]) and not PERIOD_HEADER.search(line)
+        values = [c for c in (c.strip() for c in line.strip().strip("|").split("|")[1:])
+                  if VALUE_CELL.fullmatch(c) and any(ch.isdigit() for ch in c)]
+        # A header row holds no numbers but years, and those only above the table's first data row.
+        header = not values or (not in_data and all(_YEAR_CELL.fullmatch(c) for c in values))
+        in_data = in_data or (row and not header)
+        bare = row and not header and not NOT_MONEY.search(line.split("|", 1)[0])
         for q in quantities:
             if not start <= q.start < pos - 1:
                 continue
             if q.kind == "currency" and not NAMES_ITS_SCALE.search(q.raw):
                 out.append(replace(q, value=q.value * scale, tolerance=q.tolerance * scale))
-            elif bare and q.start > cells_from and q.kind == "count":
+            elif bare and q.start > cells_from and q.kind in ("count", "year"):
                 out.append(replace(q, kind="currency", alt="", unit="$", value=q.value * scale,
                                    tolerance=_half_unit(q.raw.strip("()"), scale)))
     return out
