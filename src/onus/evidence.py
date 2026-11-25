@@ -76,6 +76,19 @@ ANNUAL_PERIOD = re.compile(r"\b(?:twelve|12)[\s-]+months?\b|\bfull[\s-]+year\b|\
 QUARTER_PERIOD = re.compile(r"\b(?:three|3)[\s-]+months?\b|\bquarter\b|\bq[1-4]\b", re.I)
 _YEAR = re.compile(r"(?:19|20)\d\d")
 _YEARS = re.compile(r"\b(?:19|20)\d\d\b")
+_FISCAL = re.compile(r"\bFY\s?'?(\d{4}|\d{2})\b", re.I)
+_QUARTER_NUMBER = re.compile(r"\bQ([1-4])\b|\b(first|second|third|fourth)[\s-]+quarter\b", re.I)
+
+
+def _years(text: str) -> set[int]:
+    """The years `text` names, "FY25" and "FY2025" among them."""
+    fiscal = {int(y) + 2000 if len(y) == 2 else int(y) for y in _FISCAL.findall(text)}
+    return {int(y) for y in _YEARS.findall(text)} | fiscal
+
+
+def _quarter_numbers(text: str) -> set[int]:
+    order = {"first": 1, "second": 2, "third": 3, "fourth": 4}
+    return {int(q) if q else order[w.lower()] for q, w in _QUARTER_NUMBER.findall(text)}
 _MONTH = re.compile(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}\b", re.I)
 # A claim about the year a year-end balance opens: "entering 2025" is December 31, 2024.
 _ENTERING = re.compile(r"\b(?:entering|enter(?:ed)?|heading into|going into|start(?:ing)? of|beginning of|began)\b",
@@ -173,21 +186,20 @@ def table_cells(text: str) -> list[Cell]:
     headers: list[tuple[list[str], list[str]]] = []
     in_data, stated, pos, section = False, False, 0, ""
     pending: list[Cell] = []  # a bare headerless row's cells, kept once a second row shows it is a table
-    rows = 0
+    noted = False  # the last line was a unit note: a blank line before its table keeps it
     for line in text.split("\n"):
         start, pos = pos, pos + len(line) + 1
         if not line.strip():
-            keep = stated and rows == 0  # "(In millions)", a blank line, then its table
-            headers, in_data, stated, section, pending = [], False, keep, "", []
+            headers, in_data, stated, section, pending = [], False, stated and noted, "", []
             continue
         if _SEPARATOR.fullmatch(line.strip()):
             continue  # "|---|:---:|" only rules a markdown table
         row = "|" in line
-        rows += row
         parts = _parts(line, start) if row else [(start, pos - 1, line.strip())]
         values = [c for c in parts[1:] if numbers.VALUE_CELL.fullmatch(c[2])] if row else []
-        if numbers.UNIT_NOTE.search(line) and not values:
-            stated, rows = True, 0
+        noted = bool(numbers.UNIT_NOTE.search(line)) and not values
+        if noted:
+            stated = True
         short = row or len(line) <= numbers.PROSE_LINE
         years = bool(values) and all(_YEAR.fullmatch(t) for _, _, t in values) and not in_data
         named = [t for _, _, t in parts if not _DASHES.fullmatch(t)]
@@ -297,7 +309,10 @@ def same_period(column: str, claim: str, prose: bool = False) -> bool:
             return False
     elif span == "half" and "half" not in said or span in ("annual", "quarter") and said and span not in said:
         return False
-    years, named = {int(y) for y in _YEARS.findall(column)}, {int(y) for y in _YEARS.findall(claim)}
+    quarters, asked = _quarter_numbers(column), _quarter_numbers(claim)
+    if quarters and asked and not quarters & asked and not _EARLIER.search(claim):
+        return False  # "Q3" is no Q2 column
+    years, named = _years(column), _years(claim)
     if _ENTERING.search(claim) and not _MONTH.search(claim) and not re.search(r"\bended\b|\bmonths\b", column, re.I):
         years |= {int(y) + 1 for y in _YEAR_END.findall(column)}
     if not years or not named:
@@ -388,7 +403,10 @@ class Passage:
         a named file, always; in code, or anything read from a directory, only if the number's
         context -- its line in code and tables, its sentence in prose -- shares a word with the claim."""
         if (cell := self.cell(quantity.end - 1)) is not None:
-            return fits(cell, claim_text)
+            if not fits(cell, claim_text):
+                return False
+            if _stems(cell.label) | _subject(cell.column) or cell.section:
+                return True  # its label or header shared a word; one with no words is held to its line's
         if not (self.strict or self.kind == "code"):
             return True
         return bool(_named(self._context(quantity)) & _named(claim_text))
@@ -500,9 +518,18 @@ def _quote_key(text: str) -> str:
     return " " + " ".join(_QUOTE_TOKEN.findall(text)) + " "
 
 
+def _is_note(paragraph: str) -> bool:
+    return len(paragraph) < 200 and "|" not in paragraph and bool(numbers.UNIT_NOTE.search(paragraph))
+
+
 def _chunks(text: str, size: int = 1500) -> list[str]:
     """Paragraph-aligned chunks, so a judge sees whole passages."""
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    paragraphs: list[str] = []
+    for p in (p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()):
+        if paragraphs and _is_note(paragraphs[-1]):
+            paragraphs[-1] = f"{paragraphs[-1]}\n\n{p}"  # a unit note stays with the table below it
+        else:
+            paragraphs.append(p)
     chunks, current = [], ""
     for p in paragraphs:
         if current and len(current) + len(p) > size:
@@ -605,7 +632,11 @@ def _load_file(evidence: Evidence, path: Path, source: str, exclude_tools, read,
             evidence.add(f"{source}:{label}", "\n".join(b.text for b in chart), "prose", strict, plain=True,
                          unit=units.pop() if len(units) == 1 else "")
     elif suffix == ".csv":  # rows as "a | b | c", so a comma-separated figure is read as a cell
-        add(source, "\n".join(" | ".join(row) for row in csv.reader(io.StringIO(read()))), "table")
+        text = read().replace("\r\n", "\n").replace("\r", "\n")
+        try:
+            add(source, "\n".join(" | ".join(row) for row in csv.reader(io.StringIO(text))), "table")
+        except csv.Error:  # a field too long for the csv module, or no CSV at all: read it as it stands
+            add(source, text, "table")
     else:
         add(source, read(), "code" if suffix in CODE_SUFFIXES else "table" if suffix in TABLE_SUFFIXES else "prose")
 

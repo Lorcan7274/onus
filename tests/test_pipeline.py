@@ -917,3 +917,39 @@ def test_directory_evidence_lets_a_table_cell_fit_through_a_synonym(tmp_path):
     e = ev.load([tmp_path / "ev"])
     (c,) = scanned(tmp_path, "Sales reached 48.2 in 2025.")
     assert "48.2" not in [f.raw for f in verify.check_numbers(c, e)]
+
+
+def test_a_wordless_table_in_directory_evidence_still_needs_a_shared_word(tmp_path):
+    (tmp_path / "repo").mkdir()
+    (tmp_path / "repo" / "fixture.csv").write_text("id,a,b\n1,4390,9921\n2,17,12\n")
+    e = ev.load([tmp_path / "repo"])
+    (c,) = scanned(tmp_path, "We had 4,390 signups.")
+    assert [f.raw for f in verify.check_numbers(c, e)] == ["4,390"]
+
+
+def test_a_quarter_or_fiscal_year_column_is_no_other_quarter_or_year(tmp_path):
+    e = ev.Evidence()
+    e.add("kpis.md", "| Metric | Q2 FY26 | Q2 FY25 |\n|---|---|---|\n| ARR | 44.9 | 38.2 |\n| NRR | 118% | 121% |\n")
+    quarter, year, own = scanned(tmp_path, "ARR was 44.9 in Q3 FY26.\n\nNRR was 121% in Q2 FY26.\n\n"
+                                           "ARR was 44.9 in Q2 FY26.")
+    assert "44.9" in [f.raw for f in verify.check_numbers(quarter, e)]
+    assert [f.raw for f in verify.check_numbers(year, e)] == ["121%"]
+    assert verify.check_numbers(own, e) == []
+
+
+def test_a_unit_note_stays_with_a_long_table_and_a_heading_keeps_no_table_stated(tmp_path):
+    rows = "".join(f"| Line item {i} | {1000 + i:,} | {900 + i:,} |\n" for i in range(60))
+    e = ev.Evidence()
+    e.add("10k.md", f"(In thousands)\n\n| | 2025 | 2024 |\n|---|---|---|\n{rows}"
+                    "| Gross profit | 252,310 | 231,004 |\n\n# Q3 2026 update\n\n"
+                    "The quarter went well for the team overall.\n\nNew accounts | 4,812\n")
+    profit, accounts = scanned(tmp_path, "Gross profit was $252.3 million in 2025.\n\nWe added 4,812 customers.")
+    assert verify.check_numbers(profit, e) == [] and verify.check_numbers(accounts, e) == []
+
+
+def test_a_csv_with_old_mac_line_endings_is_read(tmp_path):
+    (tmp_path / "repo").mkdir()
+    (tmp_path / "repo" / "m.csv").write_bytes(b"Metric,2025\rSignups,4812\r")
+    e = ev.load([tmp_path / "repo"])
+    (c,) = scanned(tmp_path, "Signups reached 4,812 in 2025.")
+    assert "4,812" not in [f.raw for f in verify.check_numbers(c, e)]

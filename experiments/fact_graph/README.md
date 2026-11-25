@@ -21,13 +21,18 @@ and `onus.evidence` and runs on its own.
 - **Verdicts.** A number is *matched* by key, else *derived* along one formula (share of revenue, a
   change from the year before or from the period its words name), else checked against arithmetic the
   document writes out and the other numbers in its sentence or table row (in prose a sum or difference
-  of two figures is only *weak*, since one can match by chance; a ratio may derive), else held to
-  presence in the filing's text as *weak*. A number its key contradicts is *wrong*, as is a figure
-  given the wrong sign (income for a loss, cash provided for cash used, a gain for a loss) or a change
-  whose verb says the other direction; one with no key and no presence is *unsupported*.
+  of two figures is only *weak*, since one can match by chance; a ratio may derive, and a percentage
+  change only when a direction word agrees with it), else held to presence in the filing's text as
+  *weak*. A number its key contradicts is *wrong*, as is a figure given the wrong sign (income for a
+  loss, cash provided for cash used, a gain for a loss) or a change whose direction word (the last one
+  before the figure, else one right after it) says the other way; one with no key and no presence is
+  *unsupported*. A "wrong" is certain only when the claim's words pin its fact (two words or more, or
+  all of the fact's row label) and nothing marks the figure as adjusted, approximate or a change; a
+  figure built by arithmetic on a certainly wrong one is certain only when the document wrote the
+  arithmetic out or it is a table row's.
 - **Tables.** Each cell is read by its row label (metric) and column header (period: a quarter, "H1",
-  "6M", "YTD", a date); a "Change" column is recomputed from the facts, a "($M)" or "(in thousands)"
-  header scales bare cells.
+  "6M", "YTD", a date); a "Change" column is recomputed from the facts (year over year, or from the
+  quarter before under "Q/Q" or "Sequential"), a "($M)" or "(in thousands)" header scales bare cells.
 - **Embeddings (optional).** `emb_map.py` ranks facts by meaning with a sentence-transformers model
   (`MODE=embed`); it did worse than word overlap on agent output and is off by default.
 
@@ -73,13 +78,13 @@ layer against onus alone:
 
 | Set | Onus: false caught / true flagged | Onus + graph layer |
 |---|---|---|
-| 1 | 42 / 62, 20 / 270 | 49 / 62, 16 / 270 |
-| 2 | 42 / 57, 46 / 214 | 47 / 57, 26 / 214 |
-| 3 | 24 / 39, 60 / 360 | 29 / 39, 42 / 360 |
-| 4 | 32 / 47, 60 / 380 | 34 / 47, 47 / 380 |
-| 5 | 25 / 37, 37 / 290 | 27 / 37, 31 / 290 |
-| 6 | 34 / 50, 122 / 375 | 38 / 50, 92 / 375 |
-| 7 | 29 / 39, 32 / 322 | 32 / 39, 25 / 322 |
+| 1 | 42 / 62, 20 / 270 | 51 / 62, 15 / 270 |
+| 2 | 42 / 57, 46 / 214 | 49 / 57, 26 / 214 |
+| 3 | 24 / 39, 60 / 360 | 30 / 39, 41 / 360 |
+| 4 | 32 / 47, 60 / 380 | 35 / 47, 47 / 380 |
+| 5 | 25 / 37, 37 / 290 | 29 / 37, 31 / 290 |
+| 6 | 34 / 50, 122 / 375 | 40 / 50, 91 / 375 |
+| 7 | 29 / 39, 32 / 322 | 33 / 39, 25 / 322 |
 
 The graph keeps its own copy of the word lists it matches with, so changes to onus's table matching never
 change which fact a number keys to. They can still move the graph's verdicts: whether a "wrong" is
@@ -96,9 +101,12 @@ period a change is measured from ("from Q1 2025", "sequentially"), the sign of c
 the direction of a change, a figure the filing's prose states, and sums of two figures that only a
 written formula or a table row may turn into a derivation; then a base period that leaked to the next
 figure, a contrary word that was not the change's own verb, "6M" and "first-quarter", "total" figures,
-and words like "down" or "sequentially" read as metrics. Against onus alone, the layer catches more
-errors and flags fewer true numbers on all seven sets; against the first table's layer rows it catches
-fewer on sets 1-4, since it now adds only flags it is certain of. The graph-only rows printed by
+and words like "down" or "sequentially" read as metrics; then a base period read from a neighbour's
+words, change words the metric matching ignored, a direction given after the figure, one-word metrics
+and lone words that cannot pin a fact, and a sequential Change column. Against onus alone, the layer
+catches more errors and flags fewer true numbers on all seven sets; against the first table's layer
+rows it catches one fewer on sets 1 and 4 and as many on sets 2 and 3, since it now adds only flags it is
+certain of. The graph-only rows printed by
 `score_agents.py` count a number the graph could not parse as neither passed nor flagged.
 
 Much of the prototype is tuned to this one filer: the segment members in `SEGMENTS`, the abbreviations in

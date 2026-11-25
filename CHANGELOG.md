@@ -26,6 +26,15 @@
 - A number joined to a long digit run by a dash ("26-4087597") is no longer
   read as a count.
 
+- A table cell in the evidence is also held to its column's year and quarter
+  ("Q2 FY26" supports no claim about Q3 FY26 or FY25), takes a section row
+  ("Operating income:") as the subject of a generic label ("Total"), and is
+  aligned with its header by place when a cell is blank or "n/m". A unit note
+  just above a blank line still heads its table, and stays with it when long
+  evidence is split. A CSV file is read as a table, one row per line. A lone
+  row of bare counts, a log line or a markdown rule ("|---|") is no statement
+  row, and a rank column in a deck or Word table is no claim.
+
 - A chart value in General format under a series name, value-axis title or
   chart title that names a currency and a scale ("Revenue ($B)", "in $
   millions", "USD M") is read as that money as well as a bare magnitude, so

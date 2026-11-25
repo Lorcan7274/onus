@@ -131,7 +131,7 @@ def _table(label: str, rows: list[list[str]], caption: str) -> list[Block]:
     unit = _table_unit(caption, header)
     context = " ".join([caption, *header]).strip()
     out = [Block(0, label, cell, context=context) for cell in header]
-    ranks = {i for i, h in enumerate(header) if i == 0 or _RANK.fullmatch(h.strip())}
+    ranks = {i for i, h in enumerate(header) if _RANK.fullmatch(h.strip()) or i == 0 and not h.strip()}
     money = [not numbers.COUNTED.search(h) or _unit_of(h) is not None for h in header]
     for row in rows[1:]:
         row_unit = _row_unit(row[0], unit) if row else ""
