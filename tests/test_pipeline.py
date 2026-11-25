@@ -700,6 +700,17 @@ def test_a_header_date_or_a_count_row_under_a_unit_note_is_no_money(tmp_path):
         ["$2.0 million"], ["$63.4 million"], ["$1.2 million"]]
 
 
+def test_a_row_whose_label_names_a_period_or_whose_cell_looks_like_a_year_is_still_money(tmp_path):
+    e = ev.Evidence()
+    e.add("10q.md", "(In thousands)\nThree Months Ended\nJune 28, 2025 | June 29, 2024\n"
+                    "Net loss for the quarter | (34,912) | (33,931)\nCash at end of year | 117,269 | 158,009\n"
+                    "Revenue | 1,500 | 1,400\nRoyalties | 1987 | 1500\n")
+    claims_ = scanned(tmp_path, "Net loss was $34.9 million in the quarter.\n\n"
+                                "Cash was $117.3 million at the end of the year.\n\n"
+                                "Royalties were $2.0 million.\n\nRestructuring costs were $2.0 billion.")
+    assert [[f.raw for f in verify.check_numbers(c, e)] for c in claims_] == [[], [], [], ["$2.0 billion"]]
+
+
 def test_a_document_column_that_counts_things_keeps_its_bare_numbers(tmp_path):
     e = ev.load(texts=["Retail revenue was $32.9 million across 120 stores, and we had 1,200 customers."])
     (tmp_path / "brief.md").write_text("Revenue by segment (in thousands)\n| Segment | Revenue | Stores |\n"
@@ -720,3 +731,236 @@ def test_an_eps_claim_fits_a_per_share_row_and_not_a_share_count_column(tmp_path
     (tmp_path / "brief.md").write_text("## Headline numbers ($M)\n\n| Metric | Q2 |\n|---|---|\n| EPS | (0.43) |\n")
     findings = check(tmp_path / "brief.md", e, Settings(llm=False)).findings
     assert [f.message.split(":")[0] for f in findings if f.label == "line 5"] == ["0.43"]
+
+
+SEGMENTS_MD = ("Segment results (USD millions)\n| Segment | 2024 | 2023 |\n|---|---|---|\n"
+               "| Industrial | 4,210 | 3,980 |\n| Healthcare | 2,655 | 2,410 |\n")
+
+
+def test_a_document_table_passes_against_itself_as_evidence(tmp_path):
+    (tmp_path / "seg.md").write_text(SEGMENTS_MD)
+    assert check(tmp_path / "seg.md", ev.load([tmp_path / "seg.md"]), Settings(llm=False)).findings == []
+
+
+def test_a_dollar_cell_keeps_its_unscaled_reading_and_a_page_number_supports_no_cell(tmp_path):
+    e = ev.load(texts=["Diluted EPS was $4.17 and ARPU was $54.20.\n\n26\n\nThe charge was 36 days late."])
+    (tmp_path / "t.md").write_text("(In millions, except per share data and ARPU)\n| | Value |\n|---|---|\n"
+                                   "| Diluted | $4.17 |\n| ARPU | $54.20 |\n| Adjusted EBITDA | (26.0) |\n"
+                                   "| Charges | $ 36 |\n")
+    flagged = {f.message.split(":")[0] for f in check(tmp_path / "t.md", e, Settings(llm=False)).findings}
+    assert flagged == {"26.0", "$ 36"}
+
+
+def test_a_fiscal_quarter_column_is_a_quarter_and_annualized_names_no_year(tmp_path):
+    e = ev.Evidence()
+    e.add("kpis.md", "| Metric | Q3 FY2025 | Q3 FY2024 |\n|---|---|---|\n| NRR | 118% | 112% |\n"
+                     "| Employees | 861 | 790 |\n| Annualized logo churn | 6.1% | 7.0% |\n")
+    claims_ = scanned(tmp_path, "Net revenue retention was 118% in Q3.\n\nWe had 861 employees at quarter end.\n\n"
+                                "Annualized logo churn fell to 6.1%.")
+    assert [verify.check_numbers(c, e) for c in claims_] == [[], [], []]
+
+
+def test_a_section_row_names_the_total_below_it_and_is_no_column_header(tmp_path):
+    e = ev.Evidence()
+    e.add("10k.md", "(In millions)\n| | Years Ended December 31, | |\n| | 2024 | 2023 |\n| Revenue: | | |\n"
+                    "| Americas | $ | 5,210 | $ | 4,700 |\n| Total | $ | 8,412 | $ | 7,655 |\n"
+                    "| Operating income: | | |\n| Americas | 1,216 | 980 |\n| Total | $ | 1,671 | $ | 1,345 |\n")
+    claims_ = scanned(tmp_path, "Operating income was $1,671 million in 2024.\n\nRevenue was $1,671 million in 2024.")
+    assert [[f.raw for f in verify.check_numbers(c, e)] for c in claims_] == [[], ["$1,671 million"]]
+
+
+def test_a_column_year_must_be_the_claims_unless_it_compares(tmp_path):
+    e = ev.Evidence()
+    e.add("q.md", "(in thousands)\n| | Three Months Ended | |\n| | September 27, 2025 | September 28, 2024 |\n"
+                  "| Net loss | (12,480) | (34,912) |\n| Operating expenses | 43,503 | 47,648 |\n")
+    claims_ = scanned(tmp_path, "Q3 2025 net loss was $34.9 million.\n\n"
+                                "Operating expenses were $43.5 million, down from $47.6 million in 2024.")
+    swap, compared = ([f.raw for f in verify.check_numbers(c, e)] for c in claims_)
+    assert "$34.9 million" in swap and compared == []
+
+
+def test_amounts_in_one_cell_of_a_barred_line_license_arithmetic_and_counts_do_not(tmp_path):
+    e = ev.Evidence()
+    e.add("news.md", "Acme Weekly | Issue 42 | Revenue rose from $90 million in 2024 to $120 million in 2025\n\n"
+                     "4.4 | Form of note (included as Exhibit A in Exhibit 4.1 to the Form 8-K filed on 3/5/21).\n")
+    grew, coincidence = scanned(tmp_path, "Revenue grew 33% in 2025.\n\nMargin was 48.8%.")
+    assert verify.check_numbers(grew, e) == [] and grew.status == "derived"
+    assert [f.raw for f in verify.check_numbers(coincidence, e)] == ["48.8%"]
+
+
+def test_a_header_that_names_a_number_stays_a_header(tmp_path):
+    table = "| Quarter | Customers > $100k | Top 10 share |\n|---|---|---|\n| Q4 2024 | 1,315 | 44.8% |\n"
+    (tmp_path / "t.md").write_text(table)
+    assert check(tmp_path / "t.md", ev.load([tmp_path / "t.md"]), Settings(llm=False)).findings == []
+
+
+def test_a_dollar_cell_is_held_to_its_row_and_period(tmp_path):
+    e = ev.Evidence()
+    e.add("t.md", "(In millions)\n| Metric | Q4 FY2024 | Fiscal 2024 |\n|---|---|---|\n| Revenue | $ 12.1 | $ 44.8 |\n")
+    swap, both = scanned(tmp_path, "Q4 FY2024 revenue was $44.8 million.\n\n"
+                                   "Fiscal 2024 revenue was $44.8 million, with Q4 contributing $12.1 million.")
+    assert [f.raw for f in verify.check_numbers(swap, e)] == ["$44.8 million"]
+    assert verify.check_numbers(both, e) == []
+
+
+def test_a_total_under_a_section_fits_a_claim_about_the_total_and_a_named_row_only_its_label(tmp_path):
+    e = ev.Evidence()
+    e.add("t.md", "| | 2023 | 2024 |\n|---|---|---|\n| **Team** | | |\n| Engineering | 120 | 140 |\n"
+                  "| Total | 212 | 230 |\n| International: | | |\n| Retail | 15,867 | 17,585 |\n")
+    total, other = scanned(tmp_path, "Total headcount was 230 in 2024.\n\n"
+                                     "International foodservice was 15,867 in 2023.")
+    assert verify.check_numbers(total, e) == [] and [f.raw for f in verify.check_numbers(other, e)] == ["15,867"]
+
+
+def test_a_year_end_column_is_where_the_next_year_begins_unless_the_claim_names_a_date(tmp_path):
+    e = ev.Evidence()
+    e.add("t.md", "| Metric | December 31, 2024 | June 28, 2025 |\n|---|---|---|\n| Customers | 1,315 | 1,402 |\n"
+                  "| Cash and cash equivalents | 131.9 | 103.5 |\n")
+    entering, dated = scanned(tmp_path, "Entering 2025, we served 1,315 customers.\n\n"
+                                        "Cash and cash equivalents were 131.9 as of June 28, 2025.")
+    assert "1,315" not in [f.raw for f in verify.check_numbers(entering, e)]
+    assert "131.9" in [f.raw for f in verify.check_numbers(dated, e)]
+
+
+def test_a_log_line_is_no_statement_row(tmp_path):
+    e = ev.Evidence()
+    e.add("server.log", "2024-11-03T12:00:03Z | INFO | worker-7 | requests | 98213 | errors | 41\n")
+    (c,) = scanned(tmp_path, "We served 98,213 requests with 41 errors.")
+    assert verify.check_numbers(c, e) == []
+
+
+def test_a_word_table_cell_carries_its_row_label_and_keeps_a_short_number(tmp_path):
+    import docx
+
+    w = docx.Document()
+    w.add_paragraph("Key metrics")
+    t = w.add_table(rows=3, cols=2)
+    for (r, c), text in {(0, 0): "Metric", (0, 1): "2024", (1, 0): "Customers", (1, 1): "1,315",
+                         (2, 0): "Employees", (2, 1): "251"}.items():
+        t.cell(r, c).text = text
+    w.save(tmp_path / "kpi.docx")
+    e = ev.Evidence()
+    e.add("kpi.md", "| Metric | 2024 |\n|---|---|\n| Customers | 1,315 |\n| Employees | 230 |\n")
+    assert [f.message.split(":")[0] for f in check(tmp_path / "kpi.docx", e, Settings(llm=False)).findings] == ["251"]
+
+
+def test_a_year_ended_column_is_its_own_year_and_a_balance_opens_the_next_only_on_entering(tmp_path):
+    e = ev.Evidence()
+    e.add("10k.md", "(In millions)\n| | Year Ended December 31, 2024 | Year Ended December 31, 2025 |\n|---|---|---|\n"
+                    "| Revenue | $ | 430.9 | $ | 512.4 |\n\n"
+                    "(In millions)\n| | December 31, 2024 | December 31, 2025 |\n"
+                    "|---|---|---|\n| Total assets | $ | 198.3 | $ | 240.1 |\n")
+    swap, end, entering = scanned(tmp_path, "Revenue was $430.9 million in 2025.\n\n"
+                                            "Total assets were $198.3 million at the end of 2025.\n\n"
+                                            "Total assets were $198.3 million entering 2025.")
+    assert [f.raw for f in verify.check_numbers(swap, e)] == ["$430.9 million"]
+    assert [f.raw for f in verify.check_numbers(end, e)] == ["$198.3 million"]
+    assert verify.check_numbers(entering, e) == []
+
+
+def test_kpi_abbreviations_fit_their_labels_and_a_scaled_cell_is_a_cell(tmp_path):
+    e = ev.Evidence()
+    e.add("kpis.md", "| Metric | 2024 | 2025 |\n|---|---|---|\n| Customer acquisition cost | $410 | $385 |\n"
+                     "| Clients | 1,402 | 1,610 |\n| Free cash flow | $8.1M | $12.0M |\n")
+    cac, clients, fcf = scanned(tmp_path, "CAC fell to $385 in 2025.\n\nWe now serve 1,610 customers.\n\n"
+                                          "Free cash flow was $8.1M in 2025.")
+    assert verify.check_numbers(cac, e) == [] and verify.check_numbers(clients, e) == []
+    assert [f.raw for f in verify.check_numbers(fcf, e)] == ["$8.1M"]
+
+
+def test_a_separator_row_is_no_data_row():
+    cells = ev.table_cells("| | Three Months Ended | |\n|---|---|---|\n| | June 30, 2025 | June 30, 2024 |\n"
+                           "| Revenue | 48.2 | 41.0 |\n")
+    assert [(c.label, c.column) for c in cells] == [("Revenue", "Three Months Ended June 30, 2025"),
+                                                    ("Revenue", "Three Months Ended June 30, 2024")]
+
+
+def test_a_prose_sentence_naming_several_periods_derives_for_any_and_a_half_only_for_the_half(tmp_path):
+    e = ev.Evidence()
+    e.add("ev.md", "Full-year revenue was $400 million, up from $350 million, and fourth-quarter revenue was "
+                   "$110 million.\n\nIn the first half of 2025, revenue was $88.0 million versus $76.0 million in the "
+                   "first half of 2024.\n")
+    annual, half, bare = scanned(tmp_path, "Annual revenue grew 14%.\n\nFirst-half revenue grew 15.8%.\n\n"
+                                           "Revenue grew 15.8%.")
+    assert verify.check_numbers(annual, e) == [] and verify.check_numbers(half, e) == []
+    assert [f.raw for f in verify.check_numbers(bare, e)] == ["15.8%"]
+
+
+def test_a_bare_status_row_is_no_statement_and_csv_rows_are_read(tmp_path):
+    (tmp_path / "notes.md").write_text("signups | 4,812 | 4,390\n")
+    (tmp_path / "regions.csv").write_text("Region,2024,2025\nEMEA,48.2,52.7\n")
+    e = ev.load([tmp_path / "notes.md", tmp_path / "regions.csv"])
+    users, growth, emea = scanned(tmp_path, "We added 4,812 new users last week.\n\n"
+                                            "Signups rose 9.6% week over week.\n\nEMEA reached 52.7 in 2025.")
+    assert [verify.check_numbers(c, e) for c in (users, growth, emea)] == [[], [], []]
+
+
+def test_a_unit_note_above_a_blank_line_scales_its_table(tmp_path):
+    e = ev.Evidence()
+    e.add("q.md", "($ in millions)\n\n| | Q2 2025 | Q2 2024 |\n|---|---|---|\n| Operating loss | (3.1) | (7.4) |\n")
+    (c,) = scanned(tmp_path, "Operating loss narrowed to $(3.1)M from $(7.4)M.")
+    assert verify.check_numbers(c, e) == []
+
+
+def test_a_document_number_is_no_amount_to_compute_with(tmp_path):
+    e = ev.Evidence()
+    e.add("exhibits.md", "4.4 | Form of note (included as Exhibit 4.1 to the Form 8-K filed on 3/5/21).\n")
+    (c,) = scanned(tmp_path, "Margin was 48.8%.")
+    assert [f.raw for f in verify.check_numbers(c, e)] == ["48.8%"]
+
+
+def test_a_rank_column_is_no_claim(tmp_path):
+    import docx
+
+    w = docx.Document()
+    t = w.add_table(rows=3, cols=3)
+    for (r, c), text in {(0, 0): "Rank", (0, 1): "Product", (0, 2): "Units", (1, 0): "1", (1, 1): "Burger",
+                         (1, 2): "500", (2, 0): "2", (2, 1): "Sausage", (2, 2): "420"}.items():
+        t.cell(r, c).text = text
+    w.save(tmp_path / "rank.docx")
+    e = ev.load(texts=["Burger sold 500 units and Sausage 420."])
+    assert check(tmp_path / "rank.docx", e, Settings(llm=False)).findings == []
+
+
+def test_directory_evidence_lets_a_table_cell_fit_through_a_synonym(tmp_path):
+    (tmp_path / "ev").mkdir()
+    (tmp_path / "ev" / "kpis.md").write_text("| Metric | 2025 |\n|---|---|\n| Revenue | 48.2 |\n")
+    e = ev.load([tmp_path / "ev"])
+    (c,) = scanned(tmp_path, "Sales reached 48.2 in 2025.")
+    assert "48.2" not in [f.raw for f in verify.check_numbers(c, e)]
+
+
+def test_a_wordless_table_in_directory_evidence_still_needs_a_shared_word(tmp_path):
+    (tmp_path / "repo").mkdir()
+    (tmp_path / "repo" / "fixture.csv").write_text("id,a,b\n1,4390,9921\n2,17,12\n")
+    e = ev.load([tmp_path / "repo"])
+    (c,) = scanned(tmp_path, "We had 4,390 signups.")
+    assert [f.raw for f in verify.check_numbers(c, e)] == ["4,390"]
+
+
+def test_a_quarter_or_fiscal_year_column_is_no_other_quarter_or_year(tmp_path):
+    e = ev.Evidence()
+    e.add("kpis.md", "| Metric | Q2 FY26 | Q2 FY25 |\n|---|---|---|\n| ARR | 44.9 | 38.2 |\n| NRR | 118% | 121% |\n")
+    quarter, year, own = scanned(tmp_path, "ARR was 44.9 in Q3 FY26.\n\nNRR was 121% in Q2 FY26.\n\n"
+                                           "ARR was 44.9 in Q2 FY26.")
+    assert "44.9" in [f.raw for f in verify.check_numbers(quarter, e)]
+    assert [f.raw for f in verify.check_numbers(year, e)] == ["121%"]
+    assert verify.check_numbers(own, e) == []
+
+
+def test_a_unit_note_stays_with_a_long_table_and_a_heading_keeps_no_table_stated(tmp_path):
+    rows = "".join(f"| Line item {i} | {1000 + i:,} | {900 + i:,} |\n" for i in range(60))
+    e = ev.Evidence()
+    e.add("10k.md", f"(In thousands)\n\n| | 2025 | 2024 |\n|---|---|---|\n{rows}"
+                    "| Gross profit | 252,310 | 231,004 |\n\n# Q3 2026 update\n\n"
+                    "The quarter went well for the team overall.\n\nNew accounts | 4,812\n")
+    profit, accounts = scanned(tmp_path, "Gross profit was $252.3 million in 2025.\n\nWe added 4,812 customers.")
+    assert verify.check_numbers(profit, e) == [] and verify.check_numbers(accounts, e) == []
+
+
+def test_a_csv_with_old_mac_line_endings_is_read(tmp_path):
+    (tmp_path / "repo").mkdir()
+    (tmp_path / "repo" / "m.csv").write_bytes(b"Metric,2025\rSignups,4812\r")
+    e = ev.load([tmp_path / "repo"])
+    (c,) = scanned(tmp_path, "Signups reached 4,812 in 2025.")
+    assert "4,812" not in [f.raw for f in verify.check_numbers(c, e)]

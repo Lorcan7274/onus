@@ -62,6 +62,7 @@ class Quantity:
     alt: str = ""  # the other kind this number could be; every 1950-2099 number carries one
     scale: float = 1.0  # a chart value whose chart states its unit ("$B"): the money it is, with `unit`
     operands: tuple[int, ...] = ()  # a derived value: where the quantities it was computed from end
+    cell: str = ""  # a table cell read as a magnitude: the kind it was printed as, for its unscaled reading
 
     @property
     def group(self) -> str:
@@ -98,7 +99,7 @@ class Quantity:
         that magnitude states it (2400000 is $2.4M, 0.88 is 88%), and it states any. Under a chart
         that states its unit, the money at that scale states it too: 96.2 under "($B)" is $96.2B."""
         plain, unit = (self, other) if self.kind == "number" else (other, self)
-        if unit.temporal:
+        if unit.temporal or plain.cell and unit.group not in ("money", "count", "number"):
             return False
         readings = [(plain.value, unit.value, self.tolerance)]
         if unit.group == "percent":
@@ -106,6 +107,10 @@ class Quantity:
         if plain.unit and unit.group == "money" and unit.unit in ("", plain.unit):
             readings.append((plain.value * plain.scale, unit.value,
                              self.tolerance * (plain.scale if self is plain else 1.0)))
+        if plain.cell:  # "26.0" in a cell is no "26" on a page, nor "$36" a bare 36: precision and kind hold
+            first = readings[0]
+            same = unit.group in (GROUP[plain.cell], "number") and unit.tolerance <= first[2] + 1e-9
+            readings = [r for r in readings if r is not first or same]
         return any(abs(a - b) <= tolerance + 1e-9 for a, b, tolerance in readings)
 
 
@@ -163,9 +168,9 @@ PATTERNS = [
                          rf"(?P<low>{NUM}){H}?(?P<low_tail>{RANGE_TAIL})?(?P<sep>{RANGE_SEP})"
                          rf"(?P<repeat>[$€£])?{H}?(?P<high>{NUM})(?:\n(?-i:(?=[a-z]))|{H})?(?P<tail>{RANGE_TAIL})?"
                          rf"(?![a-z0-9]|-[a-z])", re.I)),
-    ("currency", re.compile(rf"([$€£])\s?({NUM})\s?({SCALE_WORDS})?(?![a-z])", re.I)),
+    ("currency", re.compile(rf"([$€£])\s?({NUM})(?:\s?({SCALE_WORDS}))?(?![a-z])", re.I)),
     # Accounting negatives, "$(34.9)M" and "$ | (0.38)": a filing's HTML puts the dollar sign in a cell of its own.
-    ("currency", re.compile(rf"([$€£])\s?\(({NUM})\)\s?({SCALE_WORDS})?(?![a-z])", re.I)),
+    ("currency", re.compile(rf"([$€£])\s?\(({NUM})\)(?:\s?({SCALE_WORDS}))?(?![a-z])", re.I)),
     ("currency", re.compile(rf"([$€£])\s*\|\s*\(?({NUM})\)?()(?![\w%]|\.\d|,\d)")),
     ("percent", re.compile(rf"(?<![\w.])\(({NUM})\)\s?(%)")),
     ("percent", re.compile(rf"(?<![\w.])({NUM})\s?(%|percent\b|per cent\b)", re.I)),
@@ -196,8 +201,8 @@ def find(text: str, plain: bool = False, unit: str = "", cells: bool = False) ->
     """Every quantity in `text`, longest and most specific first, no overlaps. With `plain`, a
     number that ends a line is a chart value printed with no format: a magnitude, no unit. With
     `unit` as well ("$B", as its chart states it), that magnitude is also money at that scale.
-    With `cells`, `text` is a table row or cell under a table that states `unit`: a bare number
-    filling a cell is that money."""
+    With `cells`, `text` is a table row or cell under a table that states `unit`: a number filling
+    a cell is read as that magnitude, which states it unscaled or as money at that scale."""
     taken = [(m.start(), m.end()) for m in NOISE.finditer(text)]
     found = []
     for kind, pattern in PATTERNS:
@@ -216,7 +221,7 @@ def find(text: str, plain: bool = False, unit: str = "", cells: bool = False) ->
                  if q.kind in ("count", "year") and _ends_line(text, q.end) else q for q in found]
     elif cells and (read := stated_unit(unit)):
         symbol, scale = read
-        found = [replace(q, kind="currency", alt="", unit=symbol, value=q.value * scale, tolerance=q.tolerance * scale)
+        found = [replace(q, kind="number", alt="", unit=symbol, scale=scale, cell=q.kind)
                  if (q.kind == "count" or (q.kind == "currency" and not NAMES_ITS_SCALE.search(q.raw)))
                  and _fills_cell(text, q.start, q.end) else q for q in found]
     return sorted(found, key=lambda q: q.start)
@@ -410,7 +415,8 @@ UNIT_NOTE = re.compile(r"\bin\s+(thousand|million|billion)s\b", re.I)
 NAMES_ITS_SCALE = re.compile(rf"(?:{SCALE_WORDS})$", re.I)
 PROSE_LINE = 100  # a line this long with no cells is prose, and ends the table above it
 # A table cell holding one number, as a filing prints it: "43,503", "(34,912)", "(46.5)%", "—".
-VALUE_CELL = re.compile(r"[-\u2212\u2013(~]*[$€£]?\s*\(?\d[\d,]*(?:\.\d+)?\)?\s*%?\)?|[-\u2014\u2013]+")
+VALUE_CELL = re.compile(r"[-\u2212\u2013(~]*[$€£]?\s*\(?\d[\d,]*(?:\.\d+)?(?:\s?(?:[kKmMbB]|mm|MM|bn|BN|[x×]))?\)?"
+                        r"\s*%?\)?|[-\u2014\u2013]+")
 # A table header row names a period: "Three Months Ended", "June 28, 2025", "Q2", "FY2024".
 PERIOD_HEADER = re.compile(r"\b(?:months?|weeks?|quarters?|years?|ended|fiscal|fy\d*|q[1-4]|h[12])\b|\b(?:19|20)\d\d\b",
                            re.I)
@@ -422,31 +428,44 @@ NOT_MONEY = re.compile(rf"%|\bpercent|\bmargin|\bbps\b|\bbasis points?|\bper sha
                        rf"{COUNTED.pattern}", re.I)
 
 
+_YEAR_CELL = re.compile(r"(?:19|20)\d\d")
+
+
 def scaled(text: str, quantities: list[Quantity]) -> list[Quantity]:
     """The dollar amounts of a table under a unit note, read at that scale as well. A filing puts
     "$" on a statement's first and total rows only, so every bare number in a row's cells is read
-    as dollars too, but in a header row or a row whose label names no money ("Shares"). They stay
+    as dollars too, but in a header row (no numbers but years, above the first data row) or a row
+    whose label names no money ("Shares"). They stay
     readable unscaled: a per-share column under "(In thousands, except per share data)" is dollars.
     A blank line or a line of prose ends the table; an amount that names its own scale ("$4.2
     billion") is left alone."""
-    out, scale, pos = [], 1.0, 0
+    out, scale, pos, noted, in_data = [], 1.0, 0, False, False
     for line in text.split("\n"):
         start, pos = pos, pos + len(line) + 1
         row = "|" in line
         if not line.strip() or (not row and len(line) > PROSE_LINE):
-            scale = 1.0
+            in_data = False
+        if not line.strip() and not noted or (not row and len(line) > PROSE_LINE):
+            scale = 1.0  # a blank line right after a note keeps it for the table below
         if note := UNIT_NOTE.search(line):
             scale = SCALE[note.group(1).lower()]
+        if line.strip():
+            noted = bool(note) and not row
         if scale == 1.0:
             continue
         cells_from = start + line.find("|") if row else pos
-        bare = row and not NOT_MONEY.search(line.split("|", 1)[0]) and not PERIOD_HEADER.search(line)
+        values = [c for c in (c.strip() for c in line.strip().strip("|").split("|")[1:])
+                  if VALUE_CELL.fullmatch(c) and any(ch.isdigit() for ch in c)]
+        # A header row holds no numbers but years, and those only above the table's first data row.
+        header = not values or (not in_data and all(_YEAR_CELL.fullmatch(c) for c in values))
+        in_data = in_data or (row and not header)
+        bare = row and not header and not NOT_MONEY.search(line.split("|", 1)[0])
         for q in quantities:
             if not start <= q.start < pos - 1:
                 continue
             if q.kind == "currency" and not NAMES_ITS_SCALE.search(q.raw):
                 out.append(replace(q, value=q.value * scale, tolerance=q.tolerance * scale))
-            elif bare and q.start > cells_from and q.kind == "count":
+            elif bare and q.start > cells_from and q.kind in ("count", "year"):
                 out.append(replace(q, kind="currency", alt="", unit="$", value=q.value * scale,
                                    tolerance=_half_unit(q.raw.strip("()"), scale)))
     return out

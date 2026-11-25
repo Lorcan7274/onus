@@ -136,30 +136,42 @@ A table row (`a | b | c`, as a filing converted to text prints it) is read
 the way an analyst reads it, on both sides:
 
 - **In the evidence, a number counts only for its own row and period.** In a
-  statement's rows (under a unit note or a period header, or with two numbers
-  or more), a cell supports a claim only if its row label or column header
-  shares a word with the claim ("Total operating expenses | 43,503" supports
-  "operating expenses were $43.5 million", not "EBITDA was $43.5 million"). A
-  cell under "Six Months Ended" supports only a claim that names six months or
-  the half, and one under "Years Ended" any claim but one about a quarter or a
-  half. The same holds for a change or ratio worked out between two cells. A
-  label made only of words every filing uses ("Other, net") must share one of
-  them; a line of text joined by bars is no row.
+  statement's rows (under a unit note or a period header, under a header row,
+  or a row of money or percentages), a cell supports a claim only if its row
+  label or column header shares a word with the claim ("Total operating
+  expenses | 43,503" supports "operating expenses were $43.5 million", not
+  "EBITDA was $43.5 million"); common abbreviations (NRR, CAC, R&D, EPS) are
+  written out first. A cell under "Six Months Ended" supports only a claim that
+  names six months or the half, and one under "Years Ended" any claim but one
+  about a quarter or a half. A column's year must be one the claim names, the
+  year before when the claim compares, or a later one; a column naming one
+  quarter ("Q2", "Q2 FY26") does not support a claim naming another. The same
+  holds for a change or ratio worked out between two cells. A label made only
+  of words every filing uses ("Total", "Basic") takes the section row above it
+  ("Operating income:") as its subject; a line of text joined by bars, or a lone
+  row of bare counts, is no statement row. A cell with no words to go by, in
+  evidence read from a directory, must share a word with the claim on its line
+  as any number there must.
 - **A unit note scales every cell.** Under "(In thousands)", a filing prints
   `$` on its first and total rows only, so every number in a row's cells is
   also read as dollars at that scale: `43,503` supports `$43.5 million`. A
   header row, and a row that counts things ("Weighted average shares"), is
-  left alone.
+  left alone. A note just above a blank line still heads the table below it.
+  A CSV file is read as such a table, one row per line.
   Accounting negatives keep their kind: `(36.4)%` is a percentage, `$ |
   (0.38)` and `$(34.9)M` are money.
 - **A document's own table keeps its unit.** In the document being checked,
   a table whose caption or header names one unit ("Headline Numbers ($M)",
   "(in millions)") reads a bare cell as that money, so `47.4` is checked as
   $47.4M. A row whose label says otherwise (`%`, margin, per share, shares)
-  keeps its bare numbers, as does every cell of a table with a column that
-  counts things ("Stores"). The caption and header rows go with each row, so a
-  row claim covers the periods its columns name. In a deck the slide title is
-  the caption; in Word, the paragraph just above the table.
+  keeps its bare numbers; so does a column that counts things ("Stores"): in a
+  deck or Word table that column alone, in Markdown every cell of a row that
+  holds such a count. A cell is matched as that magnitude: unscaled, it must
+  be stated as precisely in the evidence and as the same kind (`$36` is no
+  bare 36). The caption and header rows go with each row, so a row claim
+  covers the periods its columns name. In a deck the slide title is the
+  caption; in Word, the paragraph just above the table. A rank or row-number
+  column is no claim.
 
 A number joined to a long digit run by a dash (`26-4087597`, a tax ID) is no
 number.
@@ -263,9 +275,11 @@ results vary by model and run.
   against "ARR up 42%". A statement's cell must share a word with the claim
   through its row label or column header, which is a word, not a meaning:
   "Adjusted operating margin" shares nothing with "Loss from operations", and
-  only a few synonyms ("sales" for revenue, "EPS" for per share) are known. Catching a right number on the
-  wrong subject in prose is tier 2's job, and it currently judges only claims
-  that tier 1 can't settle.
+  only a few synonyms and abbreviations are known. A section row lends its
+  words to a generic label, so "Basic | $1.42" under "Net income per share:"
+  also supports "Diluted EPS was $1.42". Matching ignores sign: "$(0.9)M"
+  matches "$910K". Catching a right number on the wrong subject in prose is
+  tier 2's job, and it currently judges only claims that tier 1 can't settle.
 - **A row claim covers every column.** A claim made of a document table's row
   carries all its table's period headers, so a Q2 cell can still match the
   evidence's six-month column when the document's table has one too.

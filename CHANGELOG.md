@@ -13,7 +13,8 @@
 - Under a unit note ("(In thousands)"), every number in a table row's cells
   is read as dollars at that scale, not only those with a `$` beside them, so
   `Total operating expenses | 43,503` supports "$43.5 million"; header dates
-  and rows that count shares, staff or customers are not. Accounting
+  and rows that count shares, staff or customers are not, but a row whose label
+  names a period (`Cash at end of year`) or a cell like `1987` is. Accounting
   negatives keep their kind: `(36.4)%`, `$ | (0.38)` and `$(34.9)M`. With the
   row rule above, the corrected Beyond Meat release went from 27 findings to
   8 on its narrative and from 106 to 42 in full; the original still flags
@@ -25,6 +26,15 @@
 
 - A number joined to a long digit run by a dash ("26-4087597") is no longer
   read as a count.
+
+- A table cell in the evidence is also held to its column's year and quarter
+  ("Q2 FY26" supports no claim about Q3 FY26 or FY25), takes a section row
+  ("Operating income:") as the subject of a generic label ("Total"), and is
+  aligned with its header by place when a cell is blank or "n/m". A unit note
+  just above a blank line still heads its table, and stays with it when long
+  evidence is split. A CSV file is read as a table, one row per line. A lone
+  row of bare counts, a log line or a markdown rule ("|---|") is no statement
+  row, and a rank column in a deck or Word table is no claim.
 
 - A chart value in General format under a series name, value-axis title or
   chart title that names a currency and a scale ("Revenue ($B)", "in $
