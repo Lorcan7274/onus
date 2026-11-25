@@ -142,7 +142,7 @@ def _text_tables(lines: list[str]) -> list[Block]:
             blocks.append(Block(0, f"line {i}", line))
             continue
         cells = [c.strip() for c in text.strip("|").split("|")] if row else [text]
-        values = [c for c in cells[1:] if numbers.VALUE_CELL.fullmatch(c) and any(ch.isdigit() for ch in c)]
+        values = [c for c in cells[1:] if any(not q.temporal for q in numbers.find(c))]
         if row and not in_table:
             in_table, caption, lead = True, " ".join(lead or before_blank), []
         if not in_table:

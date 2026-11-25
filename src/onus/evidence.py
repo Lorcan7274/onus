@@ -70,9 +70,15 @@ _SENTENCE_END = re.compile(r"[.!?](?=\s)|\n\s*\n")
 HALF_PERIOD = re.compile(r"\b(?:six|nine|6|9)[\s-]+months?\b|\b(?:first|second)[\s-]+half\b|\b[12]?h[12]\b"
                          r"|\byear[\s-]+to[\s-]+date\b|\bytd\b", re.I)
 ANNUAL_PERIOD = re.compile(r"\b(?:twelve|12)[\s-]+months?\b|\bfull[\s-]+year\b|\bfiscal\s+(?:year|\d{2,4})\b"
-                           r"|\bfy\s?\d{2,4}\b|\byears?\s+ended\b|\bannual", re.I)
+                           r"|\bfy\s?\d{2,4}\b|\byears?\s+ended\b|\bannual\b(?!\s+recurring)", re.I)
 QUARTER_PERIOD = re.compile(r"\b(?:three|3)[\s-]+months?\b|\bquarter\b|\bq[1-4]\b", re.I)
 _YEAR = re.compile(r"(?:19|20)\d\d")
+_YEARS = re.compile(r"\b(?:19|20)\d\d\b")
+# A claim that sets a figure against an earlier one may cite the year before the one it names.
+_EARLIER = re.compile(r"\bcompared\b|\bversus\b|\bvs\.?\s|\bfrom\b|\byear[\s-]+ago\b|\bprior[\s-]+year\b"
+                      r"|\b(?:grew|grow|growth|rose|fell|increased?|decreased?|declined?|up|down|change[ds]?)\b"
+                      r"|\blast\s+year\b|\ba\s+year\s+(?:earlier|before)\b|\byear[\s-]+over[\s-]+year\b|\byoy\b",
+                      re.I)
 _DASHES = re.compile(r"[-:\u2013\u2014]+")
 
 
@@ -97,18 +103,38 @@ def _parts(line: str, offset: int) -> list[tuple[int, int, str]]:
     return out
 
 
-def _columns(headers: list[list[str]], n: int) -> list[str]:
-    """Each of `n` value columns' header text: a header row with n cells names one each, one with
-    n + 1 names the label column first, one with fewer spans them evenly ("Three Months Ended | Six
-    Months Ended" over four), any other is skipped."""
+def _slots(line: str) -> list[str]:
+    """A row's cells in place, empty ones kept and lone currency signs dropped."""
+    return [t for t in (piece.strip() for piece in line.split("|")) if t not in ("$", "€", "£")]
+
+
+def _filled(slots: list[str]) -> list[str]:
+    """A header row's cells with each heading carried over the empty cells after it, as a spanning
+    heading ("Three Months Ended | | |") covers them."""
+    out, last = [], ""
+    for text in slots:
+        last = text or last
+        out.append(text or last)
+    return out
+
+
+def _columns(headers: list[tuple[list[str], list[str]]], row: list[str], places: list[int]) -> list[str]:
+    """The header text above each value cell, at `places` among the row's cells `row`. A header row laid
+    out like the row names each cell's column by place; else one with as many headings as values names
+    one each, one with one more names the label column first, one with fewer spans them evenly ("Three
+    Months Ended | Six Months Ended" over four), and any other is skipped."""
+    n = len(places)
     out = [""] * n
-    for row in headers:
-        if len(row) == n + 1:
-            row = row[1:]
-        if row and n % len(row) == 0:
-            width = n // len(row)
-            for i in range(n):
-                out[i] = f"{out[i]} {row[i // width]}".strip()
+    for slots, cells in headers:
+        if len(slots) == len(row):
+            texts = [_filled(slots)[i] for i in places]
+        else:
+            if len(cells) == n + 1:
+                cells = cells[1:]
+            if not cells or n % len(cells):
+                continue
+            texts = [cells[i // (n // len(cells))] for i in range(n)]
+        out = [f"{a} {b}".strip() for a, b in zip(out, texts, strict=True)]
     return out
 
 
@@ -117,40 +143,69 @@ def table_cells(text: str) -> list[Cell]:
     label and the headers above its column. Only a statement's rows count: those under a unit note
     or a period header, or with two numbers or more. A blank line ends a table."""
     out: list[Cell] = []
-    headers: list[list[str]] = []
-    in_data, stated, pos = False, False, 0
+    headers: list[tuple[list[str], list[str]]] = []
+    in_data, stated, pos, section = False, False, 0, ""
     for line in text.split("\n"):
         start, pos = pos, pos + len(line) + 1
         if not line.strip():
-            headers, in_data, stated = [], False, False
+            headers, in_data, stated, section = [], False, False, ""
             continue
         row = "|" in line
         parts = _parts(line, start) if row else [(start, pos - 1, line.strip())]
         values = [c for c in parts[1:] if numbers.VALUE_CELL.fullmatch(c[2])] if row else []
         if numbers.UNIT_NOTE.search(line) and not values:
             stated = True
-        short = len(line) <= numbers.PROSE_LINE
+        short = row or len(line) <= numbers.PROSE_LINE
         years = bool(values) and all(_YEAR.fullmatch(t) for _, _, t in values) and not in_data
+        named = [t for _, _, t in parts if not _DASHES.fullmatch(t)]
+        if (not values and short and len(named) == 1 and (row or named[0].endswith(":"))
+                and not numbers.PERIOD_HEADER.search(line) and not numbers.UNIT_NOTE.search(line)):
+            section = named[0].rstrip(":")  # "Operating income:" heads the rows below it
+            continue
         if values and not years:
             in_data = True
             if stated or len(values) > 1:
-                columns = _columns(headers, len(values))
-                out += [Cell(a, b, parts[0][2], c) for (a, b, _), c in zip(values, columns, strict=True)]
+                row_slots = _slots(line)
+                places, at = [], 0
+                for _, _, t in values:
+                    at = row_slots.index(t, at)
+                    places.append(at)
+                    at += 1
+                columns = _columns(headers, row_slots, places)
+                label = parts[0][2]
+                if section and not _stems(label) - GENERIC:
+                    label = f"{section} {label}"
+                out += [Cell(a, b, label, c) for (a, b, _), c in zip(values, columns, strict=True)]
         elif short and (numbers.PERIOD_HEADER.search(line) or (row and not in_data)):
             if in_data:
                 headers, in_data = [], False
             stated = stated or bool(numbers.PERIOD_HEADER.search(line))
             cells = [t for _, _, t in parts if not numbers.UNIT_NOTE.search(t) and not _DASHES.fullmatch(t)]
             if cells:
-                headers.append(cells)
+                slots = ["" if numbers.UNIT_NOTE.search(t) or _DASHES.fullmatch(t) else t for t in _slots(line)]
+                headers.append((slots, cells))
     return out
 
 
 SUFFIXES = ("ings", "ing", "ions", "ion", "ment", "ees", "ee", "es", "ed", "s", "e")
 # Words a claim and a row label use for one thing.
 SYNONYMS = {"sales": "revenue", "turnover": "revenue", "eps": "pershare", "headcount": "employee",
-            "staff": "employee", "workforce": "employee", "attrition": "churn"}
-_PER_SHARE = re.compile(r"\bper\s+(?:common\s+|diluted\s+|basic\s+)?share\b", re.I)
+            "staff": "employee", "workforce": "employee", "attrition": "churn", "profit": "income",
+            "earnings": "income"}
+# Abbreviations written out, so "NRR" and "net revenue retention" share their words.
+EXPANSIONS = [(re.compile(p, re.I), r) for p, r in (
+    (r"\bper\s+(?:common\s+|diluted\s+|basic\s+)?share\b", "pershare"), (r"\bR&D\b", "research development"),
+    (r"\bSG&A\b", "selling general administrative"), (r"\bNRR\b", "net revenue retention"),
+    (r"\bARR\b", "annual recurring revenue"), (r"\bcapex\b", "capital expenditures"),
+    (r"\bopex\b", "operating expenses"), (r"\bCOGS\b", "cost goods sold"),
+    (r"\bas\s+an?\s+(?:%|percent(?:age)?)\s+of\s+(?:total\s+|net\s+)*(?:revenues?|sales)\b|%\s+of\s+(?:total\s+|net\s+)*"
+     r"(?:revenues?|sales)\b", "margin"))]
+
+
+def _expand(text: str) -> str:
+    for pattern, words in EXPANSIONS:
+        text = pattern.sub(words, text)
+    return text
 
 
 def _stem(word: str) -> str:
@@ -161,7 +216,7 @@ def _stem(word: str) -> str:
 
 
 def _stems(text: str) -> set[str]:
-    return {_stem(SYNONYMS.get(w, w)) for w in _named(_PER_SHARE.sub("pershare", text))}
+    return {_stem(SYNONYMS.get(w, w)) for w in _named(_expand(text))}
 
 
 # Words every row label and claim in a filing shares, which say nothing about what a number is.
@@ -174,21 +229,38 @@ GENERIC = {_stem(w) for w in (
 
 def _subject(column: str) -> set[str]:
     """The words of a column's headers that name what it holds, not when."""
-    words = {w for w in _named(_PER_SHARE.sub("pershare", column)) if not numbers.PERIOD_HEADER.search(w)
+    words = {w for w in _named(_expand(column)) if not numbers.PERIOD_HEADER.search(w)
              and not re.fullmatch(numbers.MONTH, w, re.I)}
     return {_stem(SYNONYMS.get(w, w)) for w in words}
 
 
+_FISCAL_YEAR = re.compile(r"\bfy\s?\d{2,4}\b|\bfiscal\s+\d{2,4}\b", re.I)
+
+
+def _spans(text: str) -> set[str]:
+    """The lengths of period `text` names: a half or year to date, a quarter, a year. A fiscal year
+    beside a quarter ("Q3 FY2025") only says which year the quarter is in."""
+    if QUARTER_PERIOD.search(text):
+        text = _FISCAL_YEAR.sub(" ", text)
+    return {name for name, pattern in (("half", HALF_PERIOD), ("quarter", QUARTER_PERIOD),
+                                       ("annual", ANNUAL_PERIOD)) if pattern.search(text)}
+
+
 def same_period(column: str, claim: str) -> bool:
-    """A six-month column states nothing about a quarter or a year; a year's column nothing about a
-    quarter or a half unless the claim names the year too; a quarter's nothing about the half."""
-    if HALF_PERIOD.search(column):
-        return bool(HALF_PERIOD.search(claim))
-    if ANNUAL_PERIOD.search(column) and (QUARTER_PERIOD.search(claim) or HALF_PERIOD.search(claim)):
-        return bool(ANNUAL_PERIOD.search(claim))
-    if QUARTER_PERIOD.search(column) and (HALF_PERIOD.search(claim) or ANNUAL_PERIOD.search(claim)):
-        return bool(QUARTER_PERIOD.search(claim))
-    return True
+    """A six-month column states nothing about a claim that does not name the half; a year's column or a
+    quarter's nothing about a claim that names other periods only. A column's year must be one the claim
+    names, the year before when the claim compares, or a later one (the claim names only the year it
+    compares with: "down from $47.6M in Q2 2024")."""
+    spans, said = _spans(column), _spans(claim)
+    span = next((s for s in ("half", "quarter", "annual") if s in spans), "")
+    if span == "half" and "half" not in said or span in ("annual", "quarter") and said and span not in said:
+        return False
+    years, named = {int(y) for y in _YEARS.findall(column)}, {int(y) for y in _YEARS.findall(claim)}
+    if not years or not named:
+        return True
+    if _EARLIER.search(claim):
+        named |= {y - 1 for y in named}
+    return bool(years & named) or min(years) > max(named)
 
 
 def fits(cell: Cell, claim: str) -> bool:
@@ -226,10 +298,13 @@ class Passage:
         for sentence in numbers.sentences(self.text):
             at = self.text.find(sentence, offset)
             offset = at + len(sentence)
-            for d in numbers.derived(numbers.find(sentence, self.plain, self.unit)):
+            found = numbers.find(sentence, self.plain, self.unit)
+            kinds = {q.end: q.kind for q in found}
+            for d in numbers.derived(found):
                 cells = [c for e in d.operands if (c := self.cell(at + e - 1)) is not None]
-                if len(cells) < len(d.operands) and "|" in sentence:
-                    continue  # a table licenses arithmetic only between its statement cells
+                if len(cells) < len(d.operands) and "|" in sentence and (
+                        "|" in sentence[min(d.operands):max(d.operands)] or "count" in {kinds[e] for e in d.operands}):
+                    continue  # a table licenses arithmetic only between its statement cells, or amounts in one cell
                 self.derived.append(d)
                 self.derived_from.append(cells if len(cells) == len(d.operands) else sentence)
 

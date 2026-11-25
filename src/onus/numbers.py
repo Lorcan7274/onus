@@ -62,6 +62,7 @@ class Quantity:
     alt: str = ""  # the other kind this number could be; every 1950-2099 number carries one
     scale: float = 1.0  # a chart value whose chart states its unit ("$B"): the money it is, with `unit`
     operands: tuple[int, ...] = ()  # a derived value: where the quantities it was computed from end
+    cell: str = ""  # a table cell read as a magnitude: the kind it was printed as, for its unscaled reading
 
     @property
     def group(self) -> str:
@@ -98,7 +99,7 @@ class Quantity:
         that magnitude states it (2400000 is $2.4M, 0.88 is 88%), and it states any. Under a chart
         that states its unit, the money at that scale states it too: 96.2 under "($B)" is $96.2B."""
         plain, unit = (self, other) if self.kind == "number" else (other, self)
-        if unit.temporal:
+        if unit.temporal or plain.cell and unit.group not in ("money", "count"):
             return False
         readings = [(plain.value, unit.value, self.tolerance)]
         if unit.group == "percent":
@@ -106,6 +107,10 @@ class Quantity:
         if plain.unit and unit.group == "money" and unit.unit in ("", plain.unit):
             readings.append((plain.value * plain.scale, unit.value,
                              self.tolerance * (plain.scale if self is plain else 1.0)))
+        if plain.cell:  # "26.0" in a cell is no "26" on a page, nor "$36" a bare 36: precision and kind hold
+            unscaled = readings[0] if unit.group == GROUP[plain.cell] else None
+            readings = [r for r in readings
+                        if (r is unscaled or r is not readings[0]) and unit.tolerance <= r[2] + 1e-9]
         return any(abs(a - b) <= tolerance + 1e-9 for a, b, tolerance in readings)
 
 
@@ -196,8 +201,8 @@ def find(text: str, plain: bool = False, unit: str = "", cells: bool = False) ->
     """Every quantity in `text`, longest and most specific first, no overlaps. With `plain`, a
     number that ends a line is a chart value printed with no format: a magnitude, no unit. With
     `unit` as well ("$B", as its chart states it), that magnitude is also money at that scale.
-    With `cells`, `text` is a table row or cell under a table that states `unit`: a bare number
-    filling a cell is that money."""
+    With `cells`, `text` is a table row or cell under a table that states `unit`: a number filling
+    a cell is read as that magnitude, which states it unscaled or as money at that scale."""
     taken = [(m.start(), m.end()) for m in NOISE.finditer(text)]
     found = []
     for kind, pattern in PATTERNS:
@@ -216,7 +221,7 @@ def find(text: str, plain: bool = False, unit: str = "", cells: bool = False) ->
                  if q.kind in ("count", "year") and _ends_line(text, q.end) else q for q in found]
     elif cells and (read := stated_unit(unit)):
         symbol, scale = read
-        found = [replace(q, kind="currency", alt="", unit=symbol, value=q.value * scale, tolerance=q.tolerance * scale)
+        found = [replace(q, kind="number", alt="", unit=symbol, scale=scale, cell=q.kind)
                  if (q.kind == "count" or (q.kind == "currency" and not NAMES_ITS_SCALE.search(q.raw)))
                  and _fills_cell(text, q.start, q.end) else q for q in found]
     return sorted(found, key=lambda q: q.start)

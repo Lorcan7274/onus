@@ -720,3 +720,58 @@ def test_an_eps_claim_fits_a_per_share_row_and_not_a_share_count_column(tmp_path
     (tmp_path / "brief.md").write_text("## Headline numbers ($M)\n\n| Metric | Q2 |\n|---|---|\n| EPS | (0.43) |\n")
     findings = check(tmp_path / "brief.md", e, Settings(llm=False)).findings
     assert [f.message.split(":")[0] for f in findings if f.label == "line 5"] == ["0.43"]
+
+
+SEGMENTS_MD = ("Segment results (USD millions)\n| Segment | 2024 | 2023 |\n|---|---|---|\n"
+               "| Industrial | 4,210 | 3,980 |\n| Healthcare | 2,655 | 2,410 |\n")
+
+
+def test_a_document_table_passes_against_itself_as_evidence(tmp_path):
+    (tmp_path / "seg.md").write_text(SEGMENTS_MD)
+    assert check(tmp_path / "seg.md", ev.load([tmp_path / "seg.md"]), Settings(llm=False)).findings == []
+
+
+def test_a_dollar_cell_keeps_its_unscaled_reading_and_a_page_number_supports_no_cell(tmp_path):
+    e = ev.load(texts=["Diluted EPS was $4.17 and ARPU was $54.20.\n\n26\n\nThe charge was 36 days late."])
+    (tmp_path / "t.md").write_text("(In millions, except per share data and ARPU)\n| | Value |\n|---|---|\n"
+                                   "| Diluted | $4.17 |\n| ARPU | $54.20 |\n| Adjusted EBITDA | (26.0) |\n"
+                                   "| Charges | $ 36 |\n")
+    flagged = {f.message.split(":")[0] for f in check(tmp_path / "t.md", e, Settings(llm=False)).findings}
+    assert flagged == {"26.0", "$ 36"}
+
+
+def test_a_fiscal_quarter_column_is_a_quarter_and_annualized_names_no_year(tmp_path):
+    e = ev.Evidence()
+    e.add("kpis.md", "| Metric | Q3 FY2025 | Q3 FY2024 |\n|---|---|---|\n| NRR | 118% | 112% |\n"
+                     "| Employees | 861 | 790 |\n| Annualized logo churn | 6.1% | 7.0% |\n")
+    claims_ = scanned(tmp_path, "Net revenue retention was 118% in Q3.\n\nWe had 861 employees at quarter end.\n\n"
+                                "Annualized logo churn fell to 6.1%.")
+    assert [verify.check_numbers(c, e) for c in claims_] == [[], [], []]
+
+
+def test_a_section_row_names_the_total_below_it_and_is_no_column_header(tmp_path):
+    e = ev.Evidence()
+    e.add("10k.md", "(In millions)\n| | Years Ended December 31, | |\n| | 2024 | 2023 |\n| Revenue: | | |\n"
+                    "| Americas | $ | 5,210 | $ | 4,700 |\n| Total | $ | 8,412 | $ | 7,655 |\n"
+                    "| Operating income: | | |\n| Americas | 1,216 | 980 |\n| Total | $ | 1,671 | $ | 1,345 |\n")
+    claims_ = scanned(tmp_path, "Operating income was $1,671 million in 2024.\n\nRevenue was $1,671 million in 2024.")
+    assert [[f.raw for f in verify.check_numbers(c, e)] for c in claims_] == [[], ["$1,671 million"]]
+
+
+def test_a_column_year_must_be_the_claims_unless_it_compares(tmp_path):
+    e = ev.Evidence()
+    e.add("q.md", "(in thousands)\n| | Three Months Ended | |\n| | September 27, 2025 | September 28, 2024 |\n"
+                  "| Net loss | (12,480) | (34,912) |\n| Operating expenses | 43,503 | 47,648 |\n")
+    claims_ = scanned(tmp_path, "Q3 2025 net loss was $34.9 million.\n\n"
+                                "Operating expenses were $43.5 million, down from $47.6 million in 2024.")
+    swap, compared = ([f.raw for f in verify.check_numbers(c, e)] for c in claims_)
+    assert "$34.9 million" in swap and compared == []
+
+
+def test_amounts_in_one_cell_of_a_barred_line_license_arithmetic_and_counts_do_not(tmp_path):
+    e = ev.Evidence()
+    e.add("news.md", "Acme Weekly | Issue 42 | Revenue rose from $90 million in 2024 to $120 million in 2025\n\n"
+                     "4.4 | Form of note (included as Exhibit A in Exhibit 4.1 to the Form 8-K filed on 3/5/21).\n")
+    grew, coincidence = scanned(tmp_path, "Revenue grew 33% in 2025.\n\nMargin was 48.8%.")
+    assert verify.check_numbers(grew, e) == [] and grew.status == "derived"
+    assert [f.raw for f in verify.check_numbers(coincidence, e)] == ["48.8%"]

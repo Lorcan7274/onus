@@ -11,11 +11,13 @@ and `onus.evidence` and runs on its own.
 - **Evidence facts.** `xbrl.py` reads the 10-Q's inline XBRL (`data/q2_2025_10q.htm`): all 1,097 facts,
   a fact nested inside another and one written as a word ("one") included, each with its concept,
   period, segment members, unit, sign and the table row label beside it.
-- **Claim keys.** `graph_check.py` gives each number in a document a key from code: its period (from
-  the filing's period end, "compared to" within its own main clause, a named quarter, "first half",
-  carried through a paragraph), its metric (the words around it matched against fact labels, finance
-  abbreviations written out) and its segment. A later quarter is guidance and an earlier one other
-  than the year-ago quarter has no facts, so neither is checked against a fact.
+- **Claim keys.** `graph_check.py` gives each number in a document a key from code: its period (the
+  filing's period end; a quarter or date its own words name; "compared to" until a clause with its own
+  verb; "In the year-ago quarter," for a whole sentence; "first half", carried through a paragraph),
+  its metric (the words around it matched against fact labels, finance abbreviations written out) and
+  its segment. A later quarter is guidance and is not checked against a fact; an earlier quarter or
+  date is checked against that period's facts where the filing has them (the first quarter's net loss,
+  last year-end's cash), and a table column that names a quarter or six months is read as that period.
 - **Verdicts.** A number is *matched* by key, else *derived* along one formula (share of revenue,
   percentage change, difference), else checked against the claim's own other numbers (sums,
   differences, ratios), else held to presence in the filing's text as *weak*. A number its key
@@ -68,23 +70,26 @@ layer against onus alone:
 
 | Set | Onus: false caught / true flagged | Onus + graph layer |
 |---|---|---|
-| 1 | 42 / 62, 21 / 270 | 48 / 62, 17 / 270 |
-| 2 | 42 / 57, 47 / 214 | 47 / 57, 27 / 214 |
-| 3 | 24 / 39, 65 / 360 | 29 / 39, 47 / 360 |
-| 4 | 32 / 47, 64 / 380 | 33 / 47, 53 / 380 |
+| 1 | 42 / 62, 20 / 270 | 48 / 62, 16 / 270 |
+| 2 | 42 / 57, 46 / 214 | 47 / 57, 26 / 214 |
+| 3 | 24 / 39, 60 / 360 | 29 / 39, 44 / 360 |
+| 4 | 32 / 47, 61 / 380 | 33 / 47, 49 / 380 |
 | 5 | 25 / 37, 37 / 290 | 27 / 37, 31 / 290 |
-| 6 | 33 / 50, 131 / 375 | 38 / 50, 100 / 375 |
-| 7 | 29 / 39, 34 / 322 | 32 / 39, 30 / 322 |
+| 6 | 34 / 50, 124 / 375 | 39 / 50, 94 / 375 |
+| 7 | 29 / 39, 32 / 322 | 32 / 39, 26 / 322 |
 
 The graph keeps its own copy of the word lists it matches with, so changes to onus's table matching never
 change which fact a number keys to. They can still move the graph's verdicts: whether a "wrong" is
 certain asks onus whether a filing table cell states the claimed value, and weak against unsupported asks
 whether the number is present in the filing's text.
 
-Fixing the sign check, the year-ago scope of "compared to", the 51 nested facts the reader dropped, the
-facts written as words, and quarters other than the filing's own left every set's scores above unchanged
-but set 1's: two guidance figures for the third quarter, called wrong against the second quarter's
-revenue before, are now guidance with no facts, and one of them falls back to onus, which passes it.
+These scores come after a review that fixed, in onus, a document table whose cells must match the same
+table as evidence, column years and fiscal quarters, and section rows; and, in the graph, the sign of a
+table cell or a bulleted figure, the period a number's own words name, ratios written out, and money
+set against a percentage in a formula. On top of the earlier sign, "compared to", nested-fact and
+quarter fixes, the layer catches as many errors or more on every set and flags fewer true numbers on
+six of the seven. The graph-only rows printed by `score_agents.py` count a number the graph could not
+parse as neither passed nor flagged.
 
 Much of the prototype is tuned to this one filer: the segment members in `SEGMENTS`, the abbreviations in
 `ABBREV`, and a period end and comparison year that come from this filing. Scoring another filer starts

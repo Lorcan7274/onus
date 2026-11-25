@@ -36,8 +36,16 @@ def _date(s: str) -> date:
     return date.fromisoformat(s.strip())
 
 
-NUMBER_WORDS = {"no": 0, "none": 0, "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-                "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12}
+NUMBER_WORDS = {w: i for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
+    "seventeen eighteen nineteen twenty".split())} | {"no": 0, "none": 0, "thirty": 30, "forty": 40, "fifty": 50,
+                                                      "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
+
+
+def _number_word(text: str) -> float:
+    """A number written in words, "four" or "twenty-one"; one not written so is 0, as a nil fact is."""
+    parts = re.split(r"[-\s]+", text.lower().strip())
+    return float(sum(NUMBER_WORDS.get(p, 0) for p in parts))
 
 
 def _facts(s: str):
@@ -80,7 +88,7 @@ def load(path: str) -> list[Fact]:
         def get(k, attrs=attrs):
             return (re.search(rf'\b{k}="([^"]*)"', attrs) or [None, None])[1]
         if "numwords" in (get("format") or ""):
-            value = float(NUMBER_WORDS.get(inner.lower(), 0)) * 10 ** int(get("scale") or 0)
+            value = _number_word(inner) * 10 ** int(get("scale") or 0)
         elif not re.search(r"\d", inner):
             value = 0.0
         else:
@@ -96,7 +104,11 @@ def load(path: str) -> list[Fact]:
             cells = [_text(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
             label = next((c for c in cells if c and not re.fullmatch(r"[\s$()%,.\d—-]*", c)), "")
         else:
-            left = _text(s[max(0, at - 600):at])
+            chunk = s[max(0, at - 600):at]
+            close, open_ = chunk.find(">"), chunk.find("<")
+            if close != -1 and (open_ == -1 or close < open_):
+                chunk = chunk[close + 1:]  # the window began inside a tag
+            left = _text(chunk)
             label = re.split(r"(?<=[.;])\s", left)[-1][-200:]
         dec = get("decimals")
         facts.append(Fact(get("name"), value, None if dec in (None, "INF") else int(dec),
