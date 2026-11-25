@@ -831,3 +831,34 @@ def test_a_word_table_cell_carries_its_row_label_and_keeps_a_short_number(tmp_pa
     e = ev.Evidence()
     e.add("kpi.md", "| Metric | 2024 |\n|---|---|\n| Customers | 1,315 |\n| Employees | 230 |\n")
     assert [f.message.split(":")[0] for f in check(tmp_path / "kpi.docx", e, Settings(llm=False)).findings] == ["251"]
+
+
+def test_a_year_ended_column_is_its_own_year_and_a_balance_opens_the_next_only_on_entering(tmp_path):
+    e = ev.Evidence()
+    e.add("10k.md", "(In millions)\n| | Year Ended December 31, 2024 | Year Ended December 31, 2025 |\n|---|---|---|\n"
+                    "| Revenue | $ | 430.9 | $ | 512.4 |\n\n"
+                    "(In millions)\n| | December 31, 2024 | December 31, 2025 |\n"
+                    "|---|---|---|\n| Total assets | $ | 198.3 | $ | 240.1 |\n")
+    swap, end, entering = scanned(tmp_path, "Revenue was $430.9 million in 2025.\n\n"
+                                            "Total assets were $198.3 million at the end of 2025.\n\n"
+                                            "Total assets were $198.3 million entering 2025.")
+    assert [f.raw for f in verify.check_numbers(swap, e)] == ["$430.9 million"]
+    assert [f.raw for f in verify.check_numbers(end, e)] == ["$198.3 million"]
+    assert verify.check_numbers(entering, e) == []
+
+
+def test_kpi_abbreviations_fit_their_labels_and_a_scaled_cell_is_a_cell(tmp_path):
+    e = ev.Evidence()
+    e.add("kpis.md", "| Metric | 2024 | 2025 |\n|---|---|---|\n| Customer acquisition cost | $410 | $385 |\n"
+                     "| Clients | 1,402 | 1,610 |\n| Free cash flow | $8.1M | $12.0M |\n")
+    cac, clients, fcf = scanned(tmp_path, "CAC fell to $385 in 2025.\n\nWe now serve 1,610 customers.\n\n"
+                                          "Free cash flow was $8.1M in 2025.")
+    assert verify.check_numbers(cac, e) == [] and verify.check_numbers(clients, e) == []
+    assert [f.raw for f in verify.check_numbers(fcf, e)] == ["$8.1M"]
+
+
+def test_a_separator_row_is_no_data_row():
+    cells = ev.table_cells("| | Three Months Ended | |\n|---|---|---|\n| | June 30, 2025 | June 30, 2024 |\n"
+                           "| Revenue | 48.2 | 41.0 |\n")
+    assert [(c.label, c.column) for c in cells] == [("Revenue", "Three Months Ended June 30, 2025"),
+                                                    ("Revenue", "Three Months Ended June 30, 2024")]

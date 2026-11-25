@@ -75,6 +75,9 @@ QUARTER_PERIOD = re.compile(r"\b(?:three|3)[\s-]+months?\b|\bquarter\b|\bq[1-4]\
 _YEAR = re.compile(r"(?:19|20)\d\d")
 _YEARS = re.compile(r"\b(?:19|20)\d\d\b")
 _MONTH = re.compile(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}\b", re.I)
+# A claim about the year a year-end balance opens: "entering 2025" is December 31, 2024.
+_ENTERING = re.compile(r"\b(?:entering|enter(?:ed)?|heading into|going into|start(?:ing)? of|beginning of|began)\b",
+                       re.I)
 _YEAR_END = re.compile(r"\b(?:Dec(?:ember|\.)?\s+(?:31,?\s+)?|year[\s-]+end\s+)((?:19|20)\d\d)\b", re.I)
 # A claim that sets a figure against an earlier one may cite the year before the one it names.
 _EARLIER = re.compile(r"\bcompared\b|\bversus\b|\bvs\.?\s|\byear[\s-]+ago\b|\bprior[\s-]+year\b"
@@ -83,6 +86,7 @@ _EARLIER = re.compile(r"\bcompared\b|\bversus\b|\bvs\.?\s|\byear[\s-]+ago\b|\bpr
                       r"|\blast\s+year\b|\ba\s+year\s+(?:earlier|before)\b|\byear[\s-]+over[\s-]+year\b|\byoy\b",
                       re.I)
 _DASHES = re.compile(r"[-:\u2013\u2014]+")
+_SEPARATOR = re.compile(r"\|?(?:\s*:?-{3,}:?\s*\|)+\s*(?::?-{3,}:?)?\s*\|?")
 
 
 @dataclass(frozen=True)
@@ -131,7 +135,7 @@ def _columns(headers: list[tuple[list[str], list[str]]], row: list[str], places:
     out = [""] * n
     for slots, cells in headers:
         if len(slots) == len(row):
-            texts = [_filled(slots)[i] for i in places]
+            texts = [slots[i] for i in places]
         else:
             if len(cells) == n + 1:
                 cells = cells[1:]
@@ -154,6 +158,8 @@ def table_cells(text: str) -> list[Cell]:
         if not line.strip():
             headers, in_data, stated, section = [], False, False, ""
             continue
+        if _SEPARATOR.fullmatch(line.strip()):
+            continue  # "|---|:---:|" only rules a markdown table
         row = "|" in line
         parts = _parts(line, start) if row else [(start, pos - 1, line.strip())]
         values = [c for c in parts[1:] if numbers.VALUE_CELL.fullmatch(c[2])] if row else []
@@ -184,7 +190,7 @@ def table_cells(text: str) -> list[Cell]:
             cells = [t for _, _, t in parts if not numbers.UNIT_NOTE.search(t) and not _DASHES.fullmatch(t)]
             if cells:
                 slots = ["" if numbers.UNIT_NOTE.search(t) or _DASHES.fullmatch(t) else t for t in _slots(line)]
-                headers.append((slots, cells))
+                headers = [*headers[-3:], (_filled(slots), cells)]  # a table's header is a few rows at most
     return out
 
 
@@ -192,13 +198,17 @@ SUFFIXES = ("ings", "ing", "ions", "ion", "ment", "ees", "ee", "es", "ed", "s", 
 # Words a claim and a row label use for one thing.
 SYNONYMS = {"sales": "revenue", "turnover": "revenue", "eps": "pershare", "headcount": "employee",
             "staff": "employee", "workforce": "employee", "attrition": "churn", "profit": "income",
-            "earnings": "income"}
+            "earnings": "income", "clients": "customer", "client": "customer"}
 # Abbreviations written out, so "NRR" and "net revenue retention" share their words.
 EXPANSIONS = [(re.compile(p, re.I), r) for p, r in (
     (r"\bper\s+(?:common\s+|diluted\s+|basic\s+)?share\b", "pershare"), (r"\bR&D\b", "research development"),
     (r"\bSG&A\b", "selling general administrative"), (r"\bNRR\b", "net revenue retention"),
     (r"\bARR\b", "annual recurring revenue"), (r"\bcapex\b", "capital expenditures"),
     (r"\bopex\b", "operating expenses"), (r"\bCOGS\b", "cost goods sold"),
+    (r"\bCAC\b", "customer acquisition cost"), (r"\bLTV\b", "lifetime value"), (r"\bAOV\b", "average order value"),
+    (r"\bMAUs?\b", "monthly active users"), (r"\bDAUs?\b", "daily active users"),
+    (r"\bGMV\b", "gross merchandise value"), (r"\bFCF\b", "free cash flow"),
+    (r"\bARPU\b", "average revenue per user"),
     (r"\bas\s+an?\s+(?:%|percent(?:age)?)\s+of\s+(?:total\s+|net\s+)*(?:revenues?|sales)\b", " margin"),
     (r"%\s+of\s+(?:total\s+|net\s+)*(?:revenues?|sales)\b", "% margin"))]
 
@@ -225,7 +235,7 @@ GENERIC = {_stem(w) for w in (
     "total", "net", "period", "other", "end", "ended", "beginning", "three", "six", "nine", "twelve", "month", "year",
     "ago", "prior", "current", "compared", "million", "thousand", "billion", "percent", "quarter", "per", "including",
     "related", "data", "except", "change", "amount", "variance", "difference", "growth", "value", "metric", "actual",
-    "reported", "yoy")}
+    "reported", "yoy", "basic", "diluted")}
 
 
 def _subject(column: str) -> set[str]:
@@ -250,13 +260,14 @@ def same_period(column: str, claim: str) -> bool:
     """A six-month column states nothing about a claim that does not name the half; a year's column or a
     quarter's nothing about a claim that names other periods only. A column's year must be one the claim
     names, the year before when the claim compares, or a later one (the claim names only the year it
-    compares with: "down from $47.6M in Q2 2024")."""
+    compares with: "down from $47.6M in Q2 2024"). A year-end balance column opens the next year for a
+    claim about entering it."""
     spans, said = _spans(column), _spans(claim)
     span = next((s for s in ("half", "quarter", "annual") if s in spans), "")
     if span == "half" and "half" not in said or span in ("annual", "quarter") and said and span not in said:
         return False
     years, named = {int(y) for y in _YEARS.findall(column)}, {int(y) for y in _YEARS.findall(claim)}
-    if not _MONTH.search(claim):  # "entering 2025" begins at December 31, 2024; "as of June 28, 2025" does not
+    if _ENTERING.search(claim) and not _MONTH.search(claim) and not re.search(r"\bended\b|\bmonths\b", column, re.I):
         years |= {int(y) + 1 for y in _YEAR_END.findall(column)}
     if not years or not named:
         return True

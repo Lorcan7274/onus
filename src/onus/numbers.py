@@ -415,7 +415,8 @@ UNIT_NOTE = re.compile(r"\bin\s+(thousand|million|billion)s\b", re.I)
 NAMES_ITS_SCALE = re.compile(rf"(?:{SCALE_WORDS})$", re.I)
 PROSE_LINE = 100  # a line this long with no cells is prose, and ends the table above it
 # A table cell holding one number, as a filing prints it: "43,503", "(34,912)", "(46.5)%", "—".
-VALUE_CELL = re.compile(r"[-\u2212\u2013(~]*[$€£]?\s*\(?\d[\d,]*(?:\.\d+)?\)?\s*%?\)?|[-\u2014\u2013]+")
+VALUE_CELL = re.compile(r"[-\u2212\u2013(~]*[$€£]?\s*\(?\d[\d,]*(?:\.\d+)?(?:\s?(?:[kKmMbB]|mm|MM|bn|BN|[x×]))?\)?"
+                        r"\s*%?\)?|[-\u2014\u2013]+")
 # A table header row names a period: "Three Months Ended", "June 28, 2025", "Q2", "FY2024".
 PERIOD_HEADER = re.compile(r"\b(?:months?|weeks?|quarters?|years?|ended|fiscal|fy\d*|q[1-4]|h[12])\b|\b(?:19|20)\d\d\b",
                            re.I)
