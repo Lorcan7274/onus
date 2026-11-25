@@ -93,7 +93,8 @@ ABBREV = [(re.compile(p, re.I), r) for p, r in [
     (r"\bSG&A\b", "selling general and administrative expenses"), (r"\bR&D\b", "research and development expenses"),
     (r"\bcapex\b|\bcapital expenditures?\b", "payments to acquire property plant and equipment purchases"),
     (r"\bint'l\b", "international"), (r"\bincl\.", "including")]]
-CHANGE = re.compile(r"\b(?:increase|decrease|grew|grow|fell|declin|rose|up|down|wide|widen|narrow|year-over-year)",
+CHANGE = re.compile(r"\b(?:increase|decrease|grew|grow|fell|declin|rose|up|down|wide|widen|narrow|jump|climb"
+                    r"|year[- ]over[- ]year|yoy|y/y)",
                     re.I)
 # Geographies a claim may name that this filer's segments do not; naming one is a segment no fact has.
 GEOGRAPHY = re.compile(r"\b(?:europe|emea|asia|apac|canada|china|latin america|north america)\b", re.I)
@@ -107,7 +108,8 @@ SIGNS = [(re.compile(r"IncomeLoss|ProfitLoss|GrossProfit|EarningsPerShare|NetInc
          (re.compile(r"GainLoss|EffectOfExchangeRate|TranslationAdjustment"), re.compile(r"\bgains?\b", re.I),
           re.compile(r"\bloss(?:es)?\b", re.I))]
 PER_SHARE = re.compile(r"\bper (?:common |diluted |basic )?share\b", re.I)
-IGNORED = GENERIC | _stems("amount amounts value second first third fourth half fiscal primarily decreased increased "
+IGNORED = GENERIC | _stems("amount amounts value down up sequentially sequential dropped slipped lower higher shrank "
+                           "yoy last second first third fourth half fiscal primarily decreased increased "
                            "decrease increase "
                            "grew fell declined rose wider widened narrower narrowed year-over-year u.s. international "
                            "retail foodservice europe emea asia apac canada china america latin north margin "
@@ -115,7 +117,7 @@ IGNORED = GENERIC | _stems("amount amounts value second first third fourth half 
                            "october november december channel loss income was were mix derived")
 FUTURE = re.compile(r"\bexpect|\bestimat|\bwill\b|\bguidance\b|\boutlook\b|\bproject(?:ed|s|ion)\b|\btarget"
                     r"|\bforecast", re.I)
-QUARTER_NAMED = re.compile(r"\b(first|second|third|fourth)\s+quarter(?:\s+of\s+(\d{4}))?\b"
+QUARTER_NAMED = re.compile(r"\b(first|second|third|fourth)[\s-]+quarter(?:\s+of\s+(\d{4}))?\b"
                            r"|\bQ([1-4])(?:\s*(?:FY\s?)?'?(\d{4}|\d{2}))?\b(?![-\w])", re.I)
 HALF_NAMED = re.compile(r"\b(?:H1|1H|first[- ]half(?:\s+of)?)\s*'?(\d{4}|\d{2})\b(?![-\w])", re.I)
 YEAR_NAMED = re.compile(r"\b(?:FY\s?'?|fiscal(?:\s+year)?\s+|full[- ]year\s+)(\d{4}|\d{2})\b(?![-\w])", re.I)
@@ -126,7 +128,8 @@ ORDINAL = {"first": 1, "second": 2, "third": 3, "fourth": 4}
 # A claim that a profit-or-loss figure is income or a loss; the fact's sign says which it was.
 REVENUE = "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
 REFERENCE = re.compile(r"\b(?:exhibit|item|note|section|rule|form)\s*$", re.I)
-SIX_MONTHS = re.compile(r"\bsix[- ]months?\b|\bfirst[- ]half\b|\b[hH]1\b|\b1H(?:\s?'?\d{2,4})?\b"
+SIX_MONTHS = re.compile(r"\b(?:six|6)[- ]months?\b|\b6M(?=\s?'?\d{2,4}\b)|\bfirst[- ]half\b|\b[hH]1\b"
+                        r"|\b1H(?:\s?'?\d{2,4})?\b"
                         r"|\byear[- ]to[- ]date\b|\bYTD\b",
                         re.I)
 # How a claim's words find their fact: "lexical" word overlap, "fallback" to embeddings when overlap finds
@@ -363,6 +366,12 @@ def base_named(scope: str, after: str, when: date, end: date) -> date | None:
     return None
 
 
+def _direction(before: str) -> int:
+    """The direction the last change word before a figure gives it: up 1, down -1, none 0."""
+    words = [(m.start(), 1) for m in UP_WORD.finditer(before)] + [(m.start(), -1) for m in DOWN_WORD.finditer(before)]
+    return max(words)[1] if words else 0
+
+
 def _own_text(text: str) -> str:
     """`text` after an aside that closes in it but opened before it: "($0.43 per share) from " is "from "."""
     depth, cut = 0, 0
@@ -432,7 +441,11 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                 prior = (bool(PRIOR.search(TRAILING_PRIOR.sub(" ", scope[-1]))) or bool(TRAILING_PRIOR.search(after))
                          or bool(fronted) and not CURRENT_CUE.search(own_clause))
                 when = named_end or (shift(end, -1) if prior else end)
-                base = base_named(scope[-1], after, when, end)
+                base = base_named(sentence[max(prev_end, cut):q.start], after, when, end)
+                if base is None and compared and compared.end() <= q.start:
+                    base = next((w for _, _, w, _ in _periods(compared.group(0), end)), None)
+                if re.search(r"\byear[- ]over[- ]year\b|\byoy\b|\by/y\b", after, re.I):
+                    base = None
                 if base is not None and abs((base - shift(when, -1)).days) <= 7:
                     base = None  # the year before is what a change is measured from anyway
                 if base is not None and named_end is None and prior and not TRAILING_PRIOR.search(own_clause):
@@ -469,7 +482,8 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                     stated = [f for f in cands if unit_ok(q, f, per_share)]
                     named = bool(content(mwindow))
                     carried = False
-                    if not cands and not named and subject is not None and not part and not in_formula:
+                    total = re.search(r"\btotal(?:ed|ing|s)?\b|\bcombined\b|\btogether\b|\bin all\b", window, re.I)
+                    if not cands and not named and subject is not None and not part and not in_formula and not total:
                         carried = True
                         same = graph.value(subject.concept, months if subject.months else 0, when, subject.members)
                         if same is None and abs((subject.end - when).days) <= 7:
@@ -494,7 +508,8 @@ def check(text: str, graph: Graph, presence: ev.Evidence, end: date):
                     else:
                         subj = (subject if subject and SHARE.search(window) and not part
                                 else cands[0] if cands else None if named or part or in_formula else subject)
-                        v = derive(q, window, subj, graph, months, when, end, segs, cands[1:], base) or v
+                        v = derive(q, f"{before}\x00{after}", subj, graph, months, when, end, segs, cands[1:],
+                                   base, window) or v
                         if v.status == "skipped":
                             if stated:
                                 f = stated[0]
@@ -565,16 +580,21 @@ def _formulas(q, window, subj, graph, months, when, end, segs, base_end=None):
 
 
 def _against(direction: float, window: str) -> bool:
-    """Whether a change's words say the opposite of its direction: "grew" for a fall, "fell" for a rise."""
-    return direction > 0 and bool(DOWN_WORD.search(window)) or direction < 0 and bool(UP_WORD.search(window))
+    """Whether a change's verb says the opposite of its direction: "grew" for a fall, "fell" for a rise. Only the
+    last change word before the figure counts: "rose 94.6% on lower interest income" rose."""
+    said = _direction(window.split("\x00")[0])
+    return direction * said < 0
 
 
-def derive(q, window, subj, graph, months, when, end, segs, also=(), base_end=None):
+def derive(q, sides, subj, graph, months, when, end, segs, also=(), base_end=None, window=None):
+    """The first formula along which `subj` or a tie gives `q`, unless its verb (in `sides`, the words before
+    the figure, NUL, the words after) says the other direction."""
+    window = window if window is not None else sides.replace("\x00", " ")
     for s in [subj, *also]:
         if s is None:
             continue
         for value, how, direction in _formulas(q, window, s, graph, months, when, end, segs, base_end):
-            if close(q, value) and not _against(direction, window):
+            if close(q, value) and not _against(direction, sides):
                 return Verdict(q.raw, "derived", f"{how} = {value:,.2f}")
     return None
 
@@ -597,7 +617,7 @@ def _present(q, sentence, presence) -> bool:
 COL_CHANGE = re.compile(r"\bchange\b|\byoy\b|\by/y\b", re.I)
 COL_SHARE = re.compile(r"share of (?:net )?revenue|% of revenue|\bmix\b", re.I)
 TABLE_MILLIONS = re.compile(r"\(\s*\$\s*M\b|\$M\b|in millions", re.I)
-TABLE_THOUSANDS = re.compile(r"\(\s*\$\s*K\b|\$K\b|in thousands", re.I)
+TABLE_THOUSANDS = re.compile(r"\(\s*\$\s*K\b|\$K\b|in thousands(?!\s+of\s+(?!dollars|U\.S\.))", re.I)
 
 
 def _cells(line: str) -> list[str]:
@@ -768,7 +788,8 @@ def own_arithmetic(items, groups, formulas, table=False):
         if hit is None:  # in prose, two figures that happen to sum to it support it only as far as they are present
             operands = [(o, ov) for m, (o, ov) in enumerate(items) if m != n and groups[m] == groups[n]
                         and not o.temporal]
-            hit = next(((how, used, table) for value, how, used in _pairs(q, operands) if close(q, value)), None)
+            ratio = table or q.kind in ("percent", "multiple")  # a sum or difference may be a coincidence
+            hit = next(((how, used, ratio) for value, how, used in _pairs(q, operands) if close(q, value)), None)
         out.append((q, _judge(q, v, *hit) if hit else v))
     return out
 

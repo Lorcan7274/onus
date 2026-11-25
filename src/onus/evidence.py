@@ -30,7 +30,9 @@ its file back.
 from __future__ import annotations
 
 import bisect
+import csv
 import fnmatch
+import io
 import json
 import math
 import os
@@ -111,6 +113,23 @@ def _parts(line: str, offset: int) -> list[tuple[int, int, str]]:
     return out
 
 
+_REFERENCE = re.compile(r"\b(?:exhibit|item|note|section|rule|form|page|no\.)\s*$", re.I)
+
+
+def _reference(sentence: str, q: numbers.Quantity) -> bool:
+    """Whether a number names a document rather than an amount: "Exhibit 4.1", "Form 8-K"."""
+    return bool(_REFERENCE.search(sentence[:q.start]) or re.match(r"-[A-Z]\b", sentence[q.end:]))
+
+
+def _worded(sentence: str, q: numbers.Quantity) -> bool:
+    """Whether a word names a number on a barred line: in its own cell ("prior week: 4,390") or as its row's
+    label ("signups | 4,812 | 4,390")."""
+    cell = sentence[sentence.rfind("|", 0, q.start) + 1:q.start] + " " + sentence[q.end:].split("|", 1)[0]
+    line = sentence[sentence.rfind("\n", 0, q.start) + 1:]
+    label = next((c for c in line.split("|") if c.strip()), "")
+    return any(re.search(r"[A-Za-z]{3,}", t) for t in (cell, label))
+
+
 def _slots(line: str) -> list[str]:
     """A row's cells in place, empty ones kept and lone currency signs dropped."""
     return [t for t in (piece.strip() for piece in line.split("|")) if t not in ("$", "€", "£")]
@@ -153,18 +172,22 @@ def table_cells(text: str) -> list[Cell]:
     out: list[Cell] = []
     headers: list[tuple[list[str], list[str]]] = []
     in_data, stated, pos, section = False, False, 0, ""
+    pending: list[Cell] = []  # a bare headerless row's cells, kept once a second row shows it is a table
+    rows = 0
     for line in text.split("\n"):
         start, pos = pos, pos + len(line) + 1
         if not line.strip():
-            headers, in_data, stated, section = [], False, False, ""
+            keep = stated and rows == 0  # "(In millions)", a blank line, then its table
+            headers, in_data, stated, section, pending = [], False, keep, "", []
             continue
         if _SEPARATOR.fullmatch(line.strip()):
             continue  # "|---|:---:|" only rules a markdown table
         row = "|" in line
+        rows += row
         parts = _parts(line, start) if row else [(start, pos - 1, line.strip())]
         values = [c for c in parts[1:] if numbers.VALUE_CELL.fullmatch(c[2])] if row else []
         if numbers.UNIT_NOTE.search(line) and not values:
-            stated = True
+            stated, rows = True, 0
         short = row or len(line) <= numbers.PROSE_LINE
         years = bool(values) and all(_YEAR.fullmatch(t) for _, _, t in values) and not in_data
         named = [t for _, _, t in parts if not _DASHES.fullmatch(t)]
@@ -182,7 +205,12 @@ def table_cells(text: str) -> list[Cell]:
                     places.append(at)
                     at += 1
                 columns = _columns(headers, row_slots, places)
-                out += [Cell(a, b, parts[0][2], c, section) for (a, b, _), c in zip(values, columns, strict=True)]
+                found = [Cell(a, b, parts[0][2], c, section) for (a, b, _), c in zip(values, columns, strict=True)]
+                if stated or headers or pending or re.search(r"[$€£%]", line):
+                    out += pending + found
+                    pending = []
+                else:
+                    pending = found
         elif short and (numbers.PERIOD_HEADER.search(line) or (row and not in_data)):
             if in_data:
                 headers, in_data = [], False
@@ -256,7 +284,7 @@ def _spans(text: str) -> set[str]:
                                        ("annual", ANNUAL_PERIOD)) if pattern.search(text)}
 
 
-def same_period(column: str, claim: str) -> bool:
+def same_period(column: str, claim: str, prose: bool = False) -> bool:
     """A six-month column states nothing about a claim that does not name the half; a year's column or a
     quarter's nothing about a claim that names other periods only. A column's year must be one the claim
     names, the year before when the claim compares, or a later one (the claim names only the year it
@@ -264,7 +292,10 @@ def same_period(column: str, claim: str) -> bool:
     claim about entering it."""
     spans, said = _spans(column), _spans(claim)
     span = next((s for s in ("half", "quarter", "annual") if s in spans), "")
-    if span == "half" and "half" not in said or span in ("annual", "quarter") and said and span not in said:
+    if prose:  # a sentence may name several periods: it rules out only a claim naming none of them
+        if spans == {"half"} and "half" not in said or spans and said and not spans & said:
+            return False
+    elif span == "half" and "half" not in said or span in ("annual", "quarter") and said and span not in said:
         return False
     years, named = {int(y) for y in _YEARS.findall(column)}, {int(y) for y in _YEARS.findall(claim)}
     if _ENTERING.search(claim) and not _MONTH.search(claim) and not re.search(r"\bended\b|\bmonths\b", column, re.I):
@@ -317,12 +348,15 @@ class Passage:
             at = self.text.find(sentence, offset)
             offset = at + len(sentence)
             found = numbers.find(sentence, self.plain, self.unit)
-            kinds = {q.end: q.kind for q in found}
+            by_end = {q.end: q for q in found}
             for d in numbers.derived(found):
                 cells = [c for e in d.operands if (c := self.cell(at + e - 1)) is not None]
-                if len(cells) < len(d.operands) and "|" in sentence and (
-                        "|" in sentence[min(d.operands):max(d.operands)] or "count" in {kinds[e] for e in d.operands}):
-                    continue  # a table licenses arithmetic only between its statement cells, or amounts in one cell
+                operands = [by_end[e] for e in d.operands]
+                if any(_reference(sentence, q) for q in operands):
+                    continue  # "Exhibit 4.1" and "Form 8-K" are names, not amounts
+                if (len(cells) < len(d.operands) and "|" in sentence[min(d.operands):max(d.operands)]
+                        and not all(_worded(sentence, q) for q in operands)):
+                    continue  # across a barred line's cells, only figures their own words name
                 self.derived.append(d)
                 self.derived_from.append(cells if len(cells) == len(d.operands) else sentence)
 
@@ -340,7 +374,7 @@ class Passage:
         from prose, the sentence must cover the claim's period."""
         source = self.derived_from[index]
         if isinstance(source, str):
-            return same_period(source, claim_text)
+            return same_period(source, claim_text, prose=True)
         return all(fits(c, claim_text) for c in source)
 
     @cached_property
@@ -349,11 +383,12 @@ class Passage:
 
     def can_support(self, quantity: numbers.Quantity, claim_text: str) -> bool:
         """Whether this passage's `quantity` may support a claim. In a table row, only if the
-        row's label shares a word with the claim and its column's period is the claim's. Else, in
+        row's label shares a word with the claim and its column's period is the claim's, whatever
+        the passage's strictness. Else, in
         a named file, always; in code, or anything read from a directory, only if the number's
         context -- its line in code and tables, its sentence in prose -- shares a word with the claim."""
-        if (cell := self.cell(quantity.end - 1)) is not None and not fits(cell, claim_text):
-            return False
+        if (cell := self.cell(quantity.end - 1)) is not None:
+            return fits(cell, claim_text)
         if not (self.strict or self.kind == "code"):
             return True
         return bool(_named(self._context(quantity)) & _named(claim_text))
@@ -569,6 +604,8 @@ def _load_file(evidence: Evidence, path: Path, source: str, exclude_tools, read,
             units = {b.unit for b in chart if b.plain}  # a passage holds one unit; series that differ keep none
             evidence.add(f"{source}:{label}", "\n".join(b.text for b in chart), "prose", strict, plain=True,
                          unit=units.pop() if len(units) == 1 else "")
+    elif suffix == ".csv":  # rows as "a | b | c", so a comma-separated figure is read as a cell
+        add(source, "\n".join(" | ".join(row) for row in csv.reader(io.StringIO(read()))), "table")
     else:
         add(source, read(), "code" if suffix in CODE_SUFFIXES else "table" if suffix in TABLE_SUFFIXES else "prose")
 

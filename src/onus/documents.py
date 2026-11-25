@@ -79,6 +79,7 @@ class Document:
 
 
 _YEAR = re.compile(r"(?:19|20)\d\d")
+_RANK = re.compile(r"#|no\.?|rank(?:ing)?|position|pos\.?", re.I)
 _DASHES = re.compile(r"[-:\s]*")
 
 
@@ -130,13 +131,14 @@ def _table(label: str, rows: list[list[str]], caption: str) -> list[Block]:
     unit = _table_unit(caption, header)
     context = " ".join([caption, *header]).strip()
     out = [Block(0, label, cell, context=context) for cell in header]
+    ranks = {i for i, h in enumerate(header) if i == 0 or _RANK.fullmatch(h.strip())}
     money = [not numbers.COUNTED.search(h) or _unit_of(h) is not None for h in header]
     for row in rows[1:]:
         row_unit = _row_unit(row[0], unit) if row else ""
         out += [Block(0, label, cell, unit=row_unit if i >= len(money) or money[i] else "",
                       cells=bool(row_unit) and i > 0 and (i >= len(money) or money[i]),
                       context=f"{context} {row[0]}" if i else context)
-                for i, cell in enumerate(row)]
+                for i, cell in enumerate(row) if not (i in ranks and _BARE_NUMBER.match(cell))]
     return out
 
 

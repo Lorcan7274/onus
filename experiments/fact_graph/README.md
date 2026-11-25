@@ -18,13 +18,16 @@ and `onus.evidence` and runs on its own.
   its segment. A later quarter is guidance and is not checked against a fact; an earlier quarter or
   date is checked against that period's facts where the filing has them (the first quarter's net loss,
   last year-end's cash), and a table column that names a quarter or six months is read as that period.
-- **Verdicts.** A number is *matched* by key, else *derived* along one formula (share of revenue,
-  percentage change, difference), else checked against the claim's own other numbers (sums,
-  differences, ratios), else held to presence in the filing's text as *weak*. A number its key
-  contradicts is *wrong*, as is an income or loss figure given the wrong sign ("operating income of
-  $34.9 million" for a $34.9 million loss); one with no key and no presence is *unsupported*.
-- **Tables.** Each cell is read by its row label (metric) and column header (period); a "Change"
-  column is recomputed from the facts, a "($M)" header scales bare cells.
+- **Verdicts.** A number is *matched* by key, else *derived* along one formula (share of revenue, a
+  change from the year before or from the period its words name), else checked against arithmetic the
+  document writes out and the other numbers in its sentence or table row (in prose a sum or difference
+  of two figures is only *weak*, since one can match by chance; a ratio may derive), else held to
+  presence in the filing's text as *weak*. A number its key contradicts is *wrong*, as is a figure
+  given the wrong sign (income for a loss, cash provided for cash used, a gain for a loss) or a change
+  whose verb says the other direction; one with no key and no presence is *unsupported*.
+- **Tables.** Each cell is read by its row label (metric) and column header (period: a quarter, "H1",
+  "6M", "YTD", a date); a "Change" column is recomputed from the facts, a "($M)" or "(in thousands)"
+  header scales bare cells.
 - **Embeddings (optional).** `emb_map.py` ranks facts by meaning with a sentence-transformers model
   (`MODE=embed`); it did worse than word overlap on agent output and is off by default.
 
@@ -91,10 +94,12 @@ fiscal years, a balance carried to another date, a period a neighbouring figure 
 figures, and a subject that only a figure whose words its fact explains can lend to the next; then the
 period a change is measured from ("from Q1 2025", "sequentially"), the sign of cash flows and gains,
 the direction of a change, a figure the filing's prose states, and sums of two figures that only a
-written formula or a table row may turn into a derivation. On top of
-the earlier sign, "compared to", nested-fact and quarter fixes, the layer catches as many errors or more
-on every set and flags fewer true numbers on six of the seven. The graph-only rows printed by `score_agents.py` count a number the graph could not
-parse as neither passed nor flagged.
+written formula or a table row may turn into a derivation; then a base period that leaked to the next
+figure, a contrary word that was not the change's own verb, "6M" and "first-quarter", "total" figures,
+and words like "down" or "sequentially" read as metrics. Against onus alone, the layer catches more
+errors and flags fewer true numbers on all seven sets; against the first table's layer rows it catches
+fewer on sets 1-4, since it now adds only flags it is certain of. The graph-only rows printed by
+`score_agents.py` count a number the graph could not parse as neither passed nor flagged.
 
 Much of the prototype is tuned to this one filer: the segment members in `SEGMENTS`, the abbreviations in
 `ABBREV`, and a period end and comparison year that come from this filing. Scoring another filer starts

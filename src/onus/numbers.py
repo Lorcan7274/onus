@@ -435,14 +435,15 @@ def scaled(text: str, quantities: list[Quantity]) -> list[Quantity]:
     readable unscaled: a per-share column under "(In thousands, except per share data)" is dollars.
     A blank line or a line of prose ends the table; an amount that names its own scale ("$4.2
     billion") is left alone."""
-    out, scale, pos = [], 1.0, 0
+    out, scale, pos, rows = [], 1.0, 0, 0
     for line in text.split("\n"):
         start, pos = pos, pos + len(line) + 1
         row = "|" in line
-        if not line.strip() or (not row and len(line) > PROSE_LINE):
-            scale = 1.0
+        if not line.strip() and rows or (not row and len(line) > PROSE_LINE):
+            scale = 1.0  # a blank line between a note and its first row keeps the note
         if note := UNIT_NOTE.search(line):
-            scale = SCALE[note.group(1).lower()]
+            scale, rows = SCALE[note.group(1).lower()], 0
+        rows += row
         if scale == 1.0:
             continue
         cells_from = start + line.find("|") if row else pos

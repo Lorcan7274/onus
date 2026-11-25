@@ -862,3 +862,58 @@ def test_a_separator_row_is_no_data_row():
                            "| Revenue | 48.2 | 41.0 |\n")
     assert [(c.label, c.column) for c in cells] == [("Revenue", "Three Months Ended June 30, 2025"),
                                                     ("Revenue", "Three Months Ended June 30, 2024")]
+
+
+def test_a_prose_sentence_naming_several_periods_derives_for_any_and_a_half_only_for_the_half(tmp_path):
+    e = ev.Evidence()
+    e.add("ev.md", "Full-year revenue was $400 million, up from $350 million, and fourth-quarter revenue was "
+                   "$110 million.\n\nIn the first half of 2025, revenue was $88.0 million versus $76.0 million in the "
+                   "first half of 2024.\n")
+    annual, half, bare = scanned(tmp_path, "Annual revenue grew 14%.\n\nFirst-half revenue grew 15.8%.\n\n"
+                                           "Revenue grew 15.8%.")
+    assert verify.check_numbers(annual, e) == [] and verify.check_numbers(half, e) == []
+    assert [f.raw for f in verify.check_numbers(bare, e)] == ["15.8%"]
+
+
+def test_a_bare_status_row_is_no_statement_and_csv_rows_are_read(tmp_path):
+    (tmp_path / "notes.md").write_text("signups | 4,812 | 4,390\n")
+    (tmp_path / "regions.csv").write_text("Region,2024,2025\nEMEA,48.2,52.7\n")
+    e = ev.load([tmp_path / "notes.md", tmp_path / "regions.csv"])
+    users, growth, emea = scanned(tmp_path, "We added 4,812 new users last week.\n\n"
+                                            "Signups rose 9.6% week over week.\n\nEMEA reached 52.7 in 2025.")
+    assert [verify.check_numbers(c, e) for c in (users, growth, emea)] == [[], [], []]
+
+
+def test_a_unit_note_above_a_blank_line_scales_its_table(tmp_path):
+    e = ev.Evidence()
+    e.add("q.md", "($ in millions)\n\n| | Q2 2025 | Q2 2024 |\n|---|---|---|\n| Operating loss | (3.1) | (7.4) |\n")
+    (c,) = scanned(tmp_path, "Operating loss narrowed to $(3.1)M from $(7.4)M.")
+    assert verify.check_numbers(c, e) == []
+
+
+def test_a_document_number_is_no_amount_to_compute_with(tmp_path):
+    e = ev.Evidence()
+    e.add("exhibits.md", "4.4 | Form of note (included as Exhibit 4.1 to the Form 8-K filed on 3/5/21).\n")
+    (c,) = scanned(tmp_path, "Margin was 48.8%.")
+    assert [f.raw for f in verify.check_numbers(c, e)] == ["48.8%"]
+
+
+def test_a_rank_column_is_no_claim(tmp_path):
+    import docx
+
+    w = docx.Document()
+    t = w.add_table(rows=3, cols=3)
+    for (r, c), text in {(0, 0): "Rank", (0, 1): "Product", (0, 2): "Units", (1, 0): "1", (1, 1): "Burger",
+                         (1, 2): "500", (2, 0): "2", (2, 1): "Sausage", (2, 2): "420"}.items():
+        t.cell(r, c).text = text
+    w.save(tmp_path / "rank.docx")
+    e = ev.load(texts=["Burger sold 500 units and Sausage 420."])
+    assert check(tmp_path / "rank.docx", e, Settings(llm=False)).findings == []
+
+
+def test_directory_evidence_lets_a_table_cell_fit_through_a_synonym(tmp_path):
+    (tmp_path / "ev").mkdir()
+    (tmp_path / "ev" / "kpis.md").write_text("| Metric | 2025 |\n|---|---|\n| Revenue | 48.2 |\n")
+    e = ev.load([tmp_path / "ev"])
+    (c,) = scanned(tmp_path, "Sales reached 48.2 in 2025.")
+    assert "48.2" not in [f.raw for f in verify.check_numbers(c, e)]
