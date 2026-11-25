@@ -70,9 +70,9 @@ layer against onus alone:
 
 | Set | Onus: false caught / true flagged | Onus + graph layer |
 |---|---|---|
-| 1 | 42 / 62, 20 / 270 | 48 / 62, 16 / 270 |
+| 1 | 42 / 62, 20 / 270 | 49 / 62, 16 / 270 |
 | 2 | 42 / 57, 46 / 214 | 47 / 57, 26 / 214 |
-| 3 | 24 / 39, 60 / 360 | 29 / 39, 44 / 360 |
+| 3 | 24 / 39, 60 / 360 | 29 / 39, 42 / 360 |
 | 4 | 32 / 47, 60 / 380 | 34 / 47, 47 / 380 |
 | 5 | 25 / 37, 37 / 290 | 27 / 37, 31 / 290 |
 | 6 | 34 / 50, 122 / 375 | 38 / 50, 92 / 375 |
@@ -88,7 +88,10 @@ table as evidence, column years and fiscal quarters, and section rows; and, in t
 table cell or a bulleted figure, the period a number's own words name, ratios written out, and money
 set against a percentage in a formula; then guidance named once for a whole sentence, half years and
 fiscal years, a balance carried to another date, a period a neighbouring figure names, approximate
-figures, and a subject that only a figure whose words its fact explains can lend to the next. On top of
+figures, and a subject that only a figure whose words its fact explains can lend to the next; then the
+period a change is measured from ("from Q1 2025", "sequentially"), the sign of cash flows and gains,
+the direction of a change, a figure the filing's prose states, and sums of two figures that only a
+written formula or a table row may turn into a derivation. On top of
 the earlier sign, "compared to", nested-fact and quarter fixes, the layer catches as many errors or more
 on every set and flags fewer true numbers on six of the seven. The graph-only rows printed by `score_agents.py` count a number the graph could not
 parse as neither passed nor flagged.
