@@ -6,19 +6,14 @@
   or column header shares a word with the claim, a cell under a six-month
   column only a claim that names the half, and one under an annual column any
   claim but one about a quarter or a half; a change or ratio between two cells
-  is held to the same. On Beyond Meat's Q2 2025 release checked against its 10-Q, the
-  10-Q's cash row no longer "derives" the wrong -34.7% EBITDA margin, nor its
-  six-month column clear the wrong -51.8% operating margin.
+  is held to the same.
 
 - Under a unit note ("(In thousands)"), every number in a table row's cells
   is read as dollars at that scale, not only those with a `$` beside them, so
   `Total operating expenses | 43,503` supports "$43.5 million"; header dates
   and rows that count shares, staff or customers are not, but a row whose label
   names a period (`Cash at end of year`) or a cell like `1987` is. Accounting
-  negatives keep their kind: `(36.4)%`, `$ | (0.38)` and `$(34.9)M`. With the
-  row rule above, the corrected Beyond Meat release went from 27 findings to
-  8 on its narrative and from 106 to 42 in full; the original still flags
-  every value the correction changed.
+  negatives keep their kind: `(36.4)%`, `$ | (0.38)` and `$(34.9)M`.
 
 - A table in the document being checked carries the unit its caption or
   header names ("Headline Numbers ($M)") to its bare cells, and its caption

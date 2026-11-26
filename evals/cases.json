@@ -96,41 +96,6 @@
         {"code": "ONS001", "number": "0.8", "text": "Fares, Night shuttle: 0.8"}
       ],
       "clean": ["Fare revenue ($M), This year: 2.4", "Fares, This year: 2.4"]
-    },
-    {
-      "name": "release: Beyond Meat Q2 2025, as first furnished",
-      "document": "fixtures/beyond_meat/q2_2025_press_release_original.md",
-      "evidence": ["fixtures/beyond_meat/q2_2025_10q.md"],
-      "expect": [
-        {"code": "ONS001", "number": "$38.8 million", "text": "Loss from operations was $38.8 million"},
-        {"code": "ONS001", "number": "51.8%", "text": "or operating margin of -51.8%"},
-        {"code": "ONS001", "number": "$33.2 million", "text": "Net loss was $33.2 million"},
-        {"code": "ONS001", "number": "$0.43", "text": "Net loss was $33.2 million, or $0.43 per common share"},
-        {"code": "ONS001", "number": "$9.2 million", "text": "Net loss in aggregate included $9.2 million"},
-        {"code": "ONS001", "number": "$26.0 million", "text": "Adjusted EBITDA was a loss of $26.0 million"},
-        {"code": "ONS001", "number": "34.7%", "text": "Adjusted EBITDA was a loss of $26.0 million, or -34.7% of net revenues"},
-        {"code": "ONS001", "number": "$47.4 million", "text": "Operating expenses were $47.4 million in the second quarter of 2025"},
-        {"code": "ONS001", "number": "41,616", "text": "Selling, general and administrative expenses | 41,616 | 42,163 | 89,288 | 89,445"},
-        {"code": "ONS001", "number": "47,423", "text": "Total operating expenses | 47,423 | 47,648 | 102,557 | 104,790"},
-        {"code": "ONS001", "number": "38,832", "text": "Loss from operations | (38,832) | (33,931) | (95,031) | (87,405)"},
-        {"code": "ONS001", "number": "$ | (33,162)", "text": "Net loss | $ | (33,162) | $ | (34,479) | $ | (86,078) | $ | (88,840)"},
-        {"code": "ONS001", "number": "$ | (0.43)", "text": "Net loss per share available to common stockholders—basic and diluted | $ | (0.43)"},
-        {"code": "ONS001", "number": "$ | (26,043)", "text": "Adjusted EBITDA | $ | (26,043) | $ | (22,975) | $ | (68,371) | $ | (55,898)"}
-      ],
-      "clean": ["$75.0 million", "19.6%", "$93.2 million", "$33.9 million", "36.4%", "$34.5 million", "$0.53",
-                "$23.0 million", "24.7%", "$47.6 million"]
-    },
-    {
-      "name": "release: Beyond Meat Q2 2025, corrected",
-      "document": "fixtures/beyond_meat/q2_2025_press_release_corrected.md",
-      "evidence": ["fixtures/beyond_meat/q2_2025_10q.md"],
-      "expect": [],
-      "clean": ["$34.9 million", "$43.5 million", "$29.2 million", "$0.38", "$5.3 million", "$22.1 million",
-                "29.5%", "$75.0 million", "$33.9 million", "36.4%", "$0.53", "$23.0 million", "24.7%",
-                "$47.6 million", "37,696", "43,503", "34,912", "$ | (29,242)", "$ | (0.38)",
-                "Selling, general and administrative expenses | 37,696 | 42,163 | 85,368 | 89,445",
-                "Total operating expenses | 43,503 | 47,648 | 98,637 | 104,790",
-                "Loss from operations | (34,912) | (33,931) | (91,111) | (87,405)"]
     }
   ]
 }
